@@ -426,6 +426,13 @@ class DefaultActionWatchdog(BaseWatchdog):
 				self.logger.info(f'{msg}')
 				return {'validation_error': msg}
 
+			# Safety check: disabled element
+			attrs = element_node.attributes or {}
+			if 'disabled' in attrs or attrs.get('aria-disabled', '').lower() == 'true':
+				msg = f'Cannot click at ({event.coordinate_x}, {event.coordinate_y}) - element is disabled. Check if required fields need to be filled first.'
+				self.logger.info(f'{msg}')
+				return {'validation_error': msg}
+
 			# Safety check: print-related elements
 			is_print_element = self._is_print_related_element(element_node)
 			if is_print_element:
@@ -675,6 +682,12 @@ class DefaultActionWatchdog(BaseWatchdog):
 			if tag_name == 'input' and element_type == 'file':
 				msg = f'Cannot click on file input element (index={element_node.backend_node_id}). File uploads must be handled using upload_file_to_element action.'
 				# Return error dict instead of raising to avoid ERROR logs
+				return {'validation_error': msg}
+
+			# Safety check: disabled element
+			attrs = element_node.attributes or {}
+			if 'disabled' in attrs or attrs.get('aria-disabled', '').lower() == 'true':
+				msg = f'Cannot click on disabled element (index={element_node.backend_node_id}). The element has a disabled attribute — check if required fields need to be filled first or if a prerequisite step is missing.'
 				return {'validation_error': msg}
 
 			# Get CDP client

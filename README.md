@@ -101,6 +101,51 @@ Check out the [library docs](https://docs.browser-use.com) and the [cloud docs](
 
 <br/>
 
+# 🛠️ Development Setup (Run from Source)
+
+Clone the repo and get running in 4 steps:
+
+**1. Install [uv](https://docs.astral.sh/uv/) (if you don't have it):**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**2. Create a virtual environment and install dependencies:**
+```bash
+git clone https://github.com/browser-use/browser-use.git
+cd browser-use
+uv venv --python 3.11
+source .venv/bin/activate
+uv sync
+```
+
+**3. Install Chromium:**
+```bash
+uv run playwright install chromium
+```
+
+**4. Add your LLM API key to a `.env` file:**
+```
+# .env
+BROWSER_USE_API_KEY=your-key
+# or use any supported provider:
+# OPENAI_API_KEY=sk-...
+# ANTHROPIC_API_KEY=sk-ant-...
+# GOOGLE_API_KEY=...
+```
+
+**Run an example:**
+```bash
+uv run python examples/try.py
+```
+
+**Run tests:**
+```bash
+uv run pytest -vxs tests/ci
+```
+
+<br/>
+
 # 🔥 Deploy on Sandboxes
 
 We handle agents, browsers, persistence, auth, cookies, and LLMs. The agent runs right next to the browser for minimal latency.

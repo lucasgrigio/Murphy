@@ -1,0 +1,102 @@
+# Murphy Test Plan — https://work.toqan.ai
+# Generated: 2026-02-18T10:10:12.894154+00:00
+# Edit freely: add/remove/modify scenarios, then re-run with --plan flag.
+
+url: https://work.toqan.ai
+generated_at: '2026-02-18T10:10:12.894154+00:00'
+scenarios:
+- name: Happy path agent creation
+  description: Simulate a skilled user creating an AI agent with the expected flow.
+  priority: critical
+  feature_category: forms
+  target_feature: Create AI Agent
+  test_persona: happy_path
+  steps_description: 1. Navigate to the Agents page. 2. Click on the 'Create' button
+    to start creating a new AI agent. 3. Fill in all required fields with valid data.
+    4. Submit the form to create the agent.
+  success_criteria: The agent completes the expected flow and arrives at the correct
+    page/state, confirming the creation of a new AI agent.
+- name: Novice misclicks during agent creation
+  description: Simulate a confused novice who clicks the wrong buttons and submits
+    an incomplete form while trying to create an AI agent.
+  priority: high
+  feature_category: forms
+  target_feature: Create AI Agent
+  test_persona: confused_novice
+  steps_description: 1. Navigate to the Agents page. 2. Click on random elements that
+    are not related to creating an agent (e.g., other links or buttons). 3. Eventually
+    click on 'Create' button for a new AI agent. 4. Submit the form without filling
+    any fields.
+  success_criteria: The website gracefully handles the confused interaction — no crash,
+    no blank page, shows a helpful error or redirects appropriately.
+- name: Adversarial input in agent creation form
+  description: Simulate an adversarial user attempting to inject malicious scripts
+    into the agent creation form.
+  priority: critical
+  feature_category: forms
+  target_feature: Create AI Agent
+  test_persona: adversarial
+  steps_description: 1. Navigate to the Agents page. 2. Click on 'Create' button for
+    a new AI agent. 3. Enter "<script>alert(1)</script>" into one of the text fields
+    meant for configuration details. 4. Submit the form.
+  success_criteria: The website does NOT execute injected scripts, does NOT expose
+    debug info, shows an appropriate error or sanitizes the input.
+- name: 'Edge case: Extremely long input in agent creation'
+  description: Simulate an edge case where a user enters extremely long text inputs
+    into the agent creation form fields.
+  priority: critical
+  feature_category: forms
+  target_feature: Create AI Agent
+  test_persona: edge_case
+  steps_description: 1. Navigate to the Agents page. 2. Click on 'Create' button for
+    a new AI agent. 3. Enter over 500 characters of random text into each field of
+    the form (e.g., copy-paste lorem ipsum repeatedly). 4. Submit the form.
+  success_criteria: The website handles the edge case without crashing — shows a validation
+    message, truncates gracefully, or ignores invalid input.
+- name: Explorer navigates through unusual paths during agent setup
+  description: Simulate an explorer who navigates through pages in an unexpected order
+    while setting up an AI agent.
+  priority: high
+  feature_category: navigation
+  target_feature: View Agent Details
+  test_persona: explorer
+  steps_description: 1. Navigate to various pages like Tasks and Connections before
+    going to Agents page directly via URL manipulation (e.g., typing URL directly).
+    2. Once on Agents page, click on 'Create' button for a new AI agent and explore
+    options without completing setup.
+  success_criteria: The website remains functional and navigable even through an unusual
+    path.
+- name: Impatient user skips steps in multi-step flow for creating agents
+  description: Simulate an impatient user who tries to skip required steps while creating
+    an AI agent by rapidly clicking through options without waiting for pages to load
+    fully.
+  priority: high
+  feature_category: forms
+  target_feature: Create AI Agent
+  test_persona: impatient_user
+  steps_description: 1. Navigate to Agents page and click 'Create'. 2. Rapidly click
+    through any configuration steps without waiting for each step's content to load
+    completely before moving forward or submitting prematurely.
+  success_criteria: The website handles rapid/premature interactions without corrupting
+    state — no duplicate submissions, no broken UI, no data loss.
+- name: Angry user rage-clicks during agent creation process
+  description: Simulate an angry user who repeatedly clicks buttons out of frustration
+    during the process of creating an AI agent.
+  priority: high
+  feature_category: forms
+  target_feature: Create AI Agent
+  test_persona: angry_user
+  steps_description: 1. Navigate to Agents page and click 'Create'. 2. Rage-click
+    on various buttons within the form multiple times (e.g., submit button) out of
+    frustration before filling out all necessary fields properly.
+  success_criteria: The website absorbs hostile interaction gracefully — no crash,
+    no inappropriate response, no infinite loops from rapid clicks.
+- name: '''View Agent Details'' with unexpected inputs from explorer persona'
+  description: '''View Agent Details'' with unexpected inputs from explorer persona
+    who tries different configurations and views details unexpectedly.'
+  priority: high
+  feature_category: content_display
+  target_feature: View Agent Details
+  test_persona: explorer
+  steps_description: ''
+  success_criteria: ''

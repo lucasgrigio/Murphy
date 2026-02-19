@@ -223,7 +223,11 @@ class AgentMessagePrompt:
 		# Format statistics
 		stats_text = '<page_stats>'
 		if page_stats['total_elements'] < 10:
-			stats_text += 'Page appears empty (SPA not loaded?) - '
+			# After a few steps, stop warning — the page is what it is
+			current_step = self.step_info.step_number if self.step_info else 0
+			if current_step < 3:
+				stats_text += 'Few elements detected (page may still be loading) - '
+			# After 3 steps, no warning — just proceed with what's available
 		stats_text += f'{page_stats["links"]} links, {page_stats["interactive_elements"]} interactive, '
 		stats_text += f'{page_stats["iframes"]} iframes'
 		if page_stats['shadow_open'] > 0 or page_stats['shadow_closed'] > 0:
