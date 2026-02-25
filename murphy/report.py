@@ -113,15 +113,31 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 	lines.append('')
 	lines.append(f'**Metrics:** {_format_metrics_line(m)}')
 	lines.append('')
-	lines.append(f'**Path followed:**')
+	lines.append('**Path followed:**')
 	lines.append(f'{_format_path(r)}')
 	lines.append('')
 
+	# ── Evaluation dimensions ──
+	if r.process_evaluation:
+		lines += ['**Process evaluation:**', f'{r.process_evaluation}', '']
+	if r.logical_evaluation:
+		lines += ['**Logical evaluation:**', f'{r.logical_evaluation}', '']
+	if r.usability_evaluation:
+		lines += ['**Usability evaluation:**', f'{r.usability_evaluation}', '']
+
+	# ── Pages visited ──
+	if r.pages_visited:
+		lines += ['**Pages visited:**']
+		for page_url in r.pages_visited:
+			lines.append(f'- {page_url}')
+		lines.append('')
+
 	if not passed:
-		failure_reason = ''
+		failure_reason = r.reason or ''
 		judge_reasoning = ''
 		if r.judgement:
-			failure_reason = r.judgement.get('failure_reason', '')
+			if not failure_reason:
+				failure_reason = r.judgement.get('failure_reason', '')
 			judge_reasoning = r.judgement.get('reasoning', '')
 
 		if failure_reason:
@@ -305,10 +321,7 @@ def write_markdown_report(report: EvaluationReport, output_dir: Path) -> Path:
 		for f in a.features:
 			testability_icon = {'testable': '\u2705', 'partial': '\u26a0\ufe0f', 'untestable': '\u26d4'}[f.testability]
 			reason = f.testability_reason or ''
-			lines.append(
-				f'| {f.name} | {f.category} | {f.importance} | '
-				f'{testability_icon} {f.testability} | {reason} |'
-			)
+			lines.append(f'| {f.name} | {f.category} | {f.importance} | {testability_icon} {f.testability} | {reason} |')
 		lines.append('')
 
 	# User flows discovered (context)
@@ -353,7 +366,7 @@ def _suggest_fix(result: TestResult) -> str:
 		return (
 			'The actions were performed but the test could not confirm the expected outcome. '
 			'This often means the page loaded correctly but the success criteria were too strict '
-			'or the page content didn\'t explicitly match what was expected. '
+			"or the page content didn't explicitly match what was expected. "
 			'Try making the success criteria more specific (e.g., "page title contains X") '
 			'or check if the page content has changed.'
 		)
@@ -362,8 +375,8 @@ def _suggest_fix(result: TestResult) -> str:
 	if 'navigate' in failure_reason or 'load' in failure_reason or 'url' in failure_reason:
 		return (
 			'A page failed to load or navigated to an unexpected URL. '
-			'Check that the target pages exist, aren\'t behind authentication, '
-			'and don\'t redirect unexpectedly.'
+			"Check that the target pages exist, aren't behind authentication, "
+			"and don't redirect unexpectedly."
 		)
 
 	# Element not found
@@ -371,7 +384,7 @@ def _suggest_fix(result: TestResult) -> str:
 		return (
 			'An interactive element could not be found or clicked. '
 			'The page layout may have changed, or the element may load dynamically. '
-			'Check if the element is visible without scrolling and isn\'t behind a popup or overlay.'
+			"Check if the element is visible without scrolling and isn't behind a popup or overlay."
 		)
 
 	# Timeout

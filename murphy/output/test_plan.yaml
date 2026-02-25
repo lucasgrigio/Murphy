@@ -1,102 +1,99 @@
 # Murphy Test Plan — https://work.toqan.ai
-# Generated: 2026-02-18T10:10:12.894154+00:00
+# Generated: 2026-02-25T13:44:47.603523+00:00
 # Edit freely: add/remove/modify scenarios, then re-run with --plan flag.
 
 url: https://work.toqan.ai
-generated_at: '2026-02-18T10:10:12.894154+00:00'
+generated_at: '2026-02-25T13:44:47.603523+00:00'
 scenarios:
-- name: Happy path agent creation
-  description: Simulate a skilled user creating an AI agent with the expected flow.
+- name: Agent Creation - Happy Path
+  description: A standard user successfully creates an agent using the expected flow,
+    considering alternative navigation paths.
   priority: critical
   feature_category: forms
-  target_feature: Create AI Agent
+  target_feature: Agent Creation Form
   test_persona: happy_path
-  steps_description: 1. Navigate to the Agents page. 2. Click on the 'Create' button
-    to start creating a new AI agent. 3. Fill in all required fields with valid data.
-    4. Submit the form to create the agent.
-  success_criteria: The agent completes the expected flow and arrives at the correct
-    page/state, confirming the creation of a new AI agent.
-- name: Novice misclicks during agent creation
-  description: Simulate a confused novice who clicks the wrong buttons and submits
-    an incomplete form while trying to create an AI agent.
+  steps_description: 1. Navigate to https://work.toqan.ai and click on 'Agents' in
+    the main navigation menu. 2. On the Agents page, click on 'Create New Agent' button.
+    3. Fill out the agent creation form with valid data and submit.
+  success_criteria: A confirmation message 'Agent created successfully' appears, and
+    the new agent is listed on the Agents page.
+- name: Agent Creation - Confused Novice Misclick Test
+  description: A novice user accidentally clicks incorrect buttons and backtracks
+    during agent creation.
+  priority: medium
+  feature_category: navigation
+  target_feature: Agent Creation Navigation
+  test_persona: confused_novice
+  steps_description: 1. Navigate to https://work.toqan.ai/agents and mistakenly click
+    on a non-agent related link. 2. Use the browser back button to return to the Agents
+    page. 3. Attempt to create a new agent by clicking 'Create New Agent'.
+  success_criteria: The user is able to return to the Agents page without errors and
+    successfully access the agent creation form.
+- name: Agent Creation - Adversarial Input Test
+  description: An adversarial user attempts to inject malicious scripts into the agent
+    creation form.
   priority: high
   feature_category: forms
-  target_feature: Create AI Agent
-  test_persona: confused_novice
-  steps_description: 1. Navigate to the Agents page. 2. Click on random elements that
-    are not related to creating an agent (e.g., other links or buttons). 3. Eventually
-    click on 'Create' button for a new AI agent. 4. Submit the form without filling
-    any fields.
-  success_criteria: The website gracefully handles the confused interaction — no crash,
-    no blank page, shows a helpful error or redirects appropriately.
-- name: Adversarial input in agent creation form
-  description: Simulate an adversarial user attempting to inject malicious scripts
-    into the agent creation form.
-  priority: critical
-  feature_category: forms
-  target_feature: Create AI Agent
+  target_feature: Agent Creation Form Security
   test_persona: adversarial
-  steps_description: 1. Navigate to the Agents page. 2. Click on 'Create' button for
-    a new AI agent. 3. Enter "<script>alert(1)</script>" into one of the text fields
-    meant for configuration details. 4. Submit the form.
-  success_criteria: The website does NOT execute injected scripts, does NOT expose
-    debug info, shows an appropriate error or sanitizes the input.
-- name: 'Edge case: Extremely long input in agent creation'
-  description: Simulate an edge case where a user enters extremely long text inputs
-    into the agent creation form fields.
-  priority: critical
+  steps_description: 1. Navigate to https://work.toqan.ai/agents and click on 'Create
+    New Agent'. 2. Enter a script tag <script>alert('XSS')</script> in one of the
+    input fields and submit.
+  success_criteria: The input is sanitized, no alert box appears, and an error message
+    'Invalid input detected' is shown.
+- name: Agent Creation - Edge Case Special Characters Test
+  description: Testing how special characters are handled in agent names during creation.
+  priority: medium
   feature_category: forms
-  target_feature: Create AI Agent
+  target_feature: Agent Name Input Validation
   test_persona: edge_case
-  steps_description: 1. Navigate to the Agents page. 2. Click on 'Create' button for
-    a new AI agent. 3. Enter over 500 characters of random text into each field of
-    the form (e.g., copy-paste lorem ipsum repeatedly). 4. Submit the form.
-  success_criteria: The website handles the edge case without crashing — shows a validation
-    message, truncates gracefully, or ignores invalid input.
-- name: Explorer navigates through unusual paths during agent setup
-  description: Simulate an explorer who navigates through pages in an unexpected order
-    while setting up an AI agent.
+  steps_description: 1. Navigate to https://work.toqan.ai/agents and click on 'Create
+    New Agent'. 2. Enter special characters like @#$%^&*() in the agent name field
+    and submit.
+  success_criteria: '''Invalid characters in name'' error message appears if special
+    characters are not allowed, or successful creation if they are handled properly.'
+- name: Agent Creation - Explorer Unusual Navigation Test
+  description: An explorer user navigates through unexpected paths before creating
+    an agent.
+  priority: low
+  feature_category: navigation
+  target_feature: Site Navigation Flexibility
+  test_persona: explorer
+  steps_description: 1. Navigate to https://work.toqan.ai/agents, then go back to
+    homepage using browser back button. 2. Use a different path like clicking on a
+    footer link back to Agents page before creating an agent.
+  success_criteria: The user can navigate using unconventional paths without encountering
+    errors, reaching the agent creation form successfully.
+- name: Agent Creation - Impatient User Rapid Interaction Test Revised
+  description: An impatient user rapidly clicks through steps of creating an agent
+    without waiting for page loads.
   priority: high
   feature_category: navigation
-  target_feature: View Agent Details
-  test_persona: explorer
-  steps_description: 1. Navigate to various pages like Tasks and Connections before
-    going to Agents page directly via URL manipulation (e.g., typing URL directly).
-    2. Once on Agents page, click on 'Create' button for a new AI agent and explore
-    options without completing setup.
-  success_criteria: The website remains functional and navigable even through an unusual
-    path.
-- name: Impatient user skips steps in multi-step flow for creating agents
-  description: Simulate an impatient user who tries to skip required steps while creating
-    an AI agent by rapidly clicking through options without waiting for pages to load
-    fully.
-  priority: high
-  feature_category: forms
-  target_feature: Create AI Agent
+  target_feature: Page Load Handling During Agent Creation
   test_persona: impatient_user
-  steps_description: 1. Navigate to Agents page and click 'Create'. 2. Rapidly click
-    through any configuration steps without waiting for each step's content to load
-    completely before moving forward or submitting prematurely.
-  success_criteria: The website handles rapid/premature interactions without corrupting
-    state — no duplicate submissions, no broken UI, no data loss.
-- name: Angry user rage-clicks during agent creation process
-  description: Simulate an angry user who repeatedly clicks buttons out of frustration
-    during the process of creating an AI agent.
-  priority: high
+  steps_description: 1. Rapidly navigate from homepage to https://work.toqan.ai/agents
+    by clicking multiple times on 'Agents'. 2. Quickly click 'Create New Agent' multiple
+    times before page fully loads.
+  success_criteria: '''Please wait for page load'' message or similar feedback prevents
+    multiple submissions or errors.'
+- name: Agent Creation - Angry User Profanity Input Test
+  description: An angry user inputs profanity into text fields during agent creation.
+  priority: medium
   feature_category: forms
-  target_feature: Create AI Agent
+  target_feature: Input Validation for Profanity Filtering
   test_persona: angry_user
-  steps_description: 1. Navigate to Agents page and click 'Create'. 2. Rage-click
-    on various buttons within the form multiple times (e.g., submit button) out of
-    frustration before filling out all necessary fields properly.
-  success_criteria: The website absorbs hostile interaction gracefully — no crash,
-    no inappropriate response, no infinite loops from rapid clicks.
-- name: '''View Agent Details'' with unexpected inputs from explorer persona'
-  description: '''View Agent Details'' with unexpected inputs from explorer persona
-    who tries different configurations and views details unexpectedly.'
-  priority: high
-  feature_category: content_display
-  target_feature: View Agent Details
-  test_persona: explorer
-  steps_description: ''
-  success_criteria: ''
+  steps_description: 1. Navigate to https://work.toqan.ai/agents and click on 'Create
+    New Agent'. 2. Enter profanity into text fields such as name or description and
+    submit.
+  success_criteria: '''Inappropriate language detected'' error message appears, preventing
+    submission with profanity.'
+- name: Agent Creation - Edge Case Empty Input Submission Test
+  description: ''
+  priority: medium
+  feature_category: forms
+  target_feature: Form Validation for Empty Inputs
+  test_persona: edge_case
+  steps_description: 1. Navigate to https://work.toqan.ai/agents and click on 'Create
+    New Agent'. 2. Submit the form without filling any fields.
+  success_criteria: '''Required fields cannot be empty'' error message appears, preventing
+    submission of incomplete forms.'

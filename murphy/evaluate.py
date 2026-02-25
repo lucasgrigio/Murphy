@@ -3,6 +3,10 @@ Murphy — Website Evaluation System
 
 Analyzes a website, generates user journey tests, executes them, and reports results.
 
+Supports two plan-generation paths:
+1. **Feature-discovery** (default, no --goal): full site analysis → test generation
+2. **Exploration-first** (--goal provided): explore agent → summarize → synthesize plan with quality checks
+
 Usage:
     python -m murphy.evaluate https://www.prosus.com
     python -m murphy.evaluate https://stripe.com --category saas
@@ -11,6 +15,7 @@ Usage:
 
 import argparse
 import asyncio
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,18 +24,20 @@ from typing import Any, Literal
 from dotenv import load_dotenv
 
 from browser_use import Agent
+from browser_use.agent.views import AgentHistoryList
 from browser_use.browser.profile import BrowserProfile
 from browser_use.browser.session import BrowserSession
 from browser_use.llm import ChatOpenAI, SystemMessage, UserMessage
-
+from murphy.judge import murphy_judge
 from murphy.models import (
 	EvaluationReport,
 	ReportSummary,
+	ScenarioExecutionVerdict,
 	TestPlan,
 	TestResult,
+	TestScenario,
 	WebsiteAnalysis,
 )
-from murphy.judge import murphy_judge
 from murphy.report import write_json_report, write_markdown_report
 
 load_dotenv()
@@ -40,9 +47,9 @@ load_dotenv()
 
 
 async def analyze_website(url: str, llm: ChatOpenAI, category: str | None = None, goal: str | None = None) -> WebsiteAnalysis:
-	print(f'\n{"="*60}')
+	print(f'\n{"=" * 60}')
 	print(f'Phase 1: Analyzing {url}')
-	print(f'{"="*60}\n')
+	print(f'{"=" * 60}\n')
 
 	category_hint = f'\nCategory hint: {category}' if category else ''
 	goal_block = ''
@@ -67,12 +74,12 @@ async def analyze_website(url: str, llm: ChatOpenAI, category: str | None = None
 			f'- IMPORTANT: Stay on the same domain as {url}. Do NOT follow links to external sites (e.g. social media, third-party docs, partner sites). If a link goes to a different domain, note the feature but do not navigate there.\n'
 			f'- For each page, classify the page_type (homepage, landing, product, listing, detail, form, content, dashboard, auth, error, other)\n\n'
 			f'FEATURE IDENTIFICATION:\n'
-			f'- You should find at least 8-15 features for any non-trivial app. If you have fewer than 8, you haven\'t explored enough — go back and click more nav items.\n'
+			f"- You should find at least 8-15 features for any non-trivial app. If you have fewer than 8, you haven't explored enough — go back and click more nav items.\n"
 			f'- Name each feature as a user action: "Create AI agent", "Search tasks", "Upload document" — NOT "Navigation Links" or "Button group"\n'
-			f'- A feature = one thing a user can accomplish. If it takes multiple steps, that\'s still one feature.\n'
+			f"- A feature = one thing a user can accomplish. If it takes multiple steps, that's still one feature.\n"
 			f'- For `elements`, write brief descriptions: "Create button on agents page", "Task name input" — NOT raw hrefs or DOM dumps\n'
 			f'- For `page_url`, use the page where the feature is primarily accessed\n'
-			f'- Skip generic navigation (header links, footer links, breadcrumbs) — those aren\'t features\n'
+			f"- Skip generic navigation (header links, footer links, breadcrumbs) — those aren't features\n"
 			f'- Skip auth-related elements (login/logout buttons)\n'
 			f'- Category: navigation, search, forms, content_display, filtering_sorting, media, authentication, ecommerce, social, other\n'
 			f'- Assess testability: can an unauthenticated headless browser test this? (testable / partial / untestable). If not fully testable, explain why (requires login, third-party redirect, CAPTCHA, etc.)\n\n'
@@ -107,11 +114,15 @@ async def analyze_website(url: str, llm: ChatOpenAI, category: str | None = None
 
 
 async def generate_tests(
-	url: str, analysis: WebsiteAnalysis, llm: ChatOpenAI, max_tests: int, goal: str | None = None,
+	url: str,
+	analysis: WebsiteAnalysis,
+	llm: ChatOpenAI,
+	max_tests: int,
+	goal: str | None = None,
 ) -> TestPlan:
-	print(f'\n{"="*60}')
-	print(f'Phase 2: Generating test scenarios')
-	print(f'{"="*60}\n')
+	print(f'\n{"=" * 60}')
+	print('Phase 2: Generating test scenarios')
+	print(f'{"=" * 60}\n')
 
 	# Build a features summary for the prompt
 	features_by_testability: dict[str, list] = {'testable': [], 'partial': [], 'untestable': []}
@@ -123,9 +134,9 @@ async def generate_tests(
 	secondary_features = [f for f in testable_features if f.importance == 'secondary']
 	peripheral_features = [f for f in testable_features if f.importance == 'peripheral']
 
-	goal_block = ""
+	goal_block = ''
 	if goal:
-		goal_block = f"\nIMPORTANT GOAL: The user specifically wants to test: {goal}. Prioritize generating scenarios that address this goal.\n"
+		goal_block = f'\nIMPORTANT GOAL: The user specifically wants to test: {goal}. Prioritize generating scenarios that address this goal.\n'
 
 	prompt = f"""Based on this website analysis, generate {max_tests} test scenarios that target the discovered features.
 {goal_block}
@@ -190,13 +201,15 @@ Do NOT generate tests that require authentication/login unless a login page was 
 
 	response = await llm.ainvoke(
 		messages=[
-			SystemMessage(content=(
-				'You are a senior QA strategist who designs test suites that find real problems. '
-				'Your job is NOT to verify happy paths — any junior can do that. '
-				'Your job is to think like real users: confused, impatient, angry, adversarial, and exploratory. '
-				'Each test should simulate a REALISTIC human behavior, not a robotic verification step. '
-				'Real users misclick, rage-type, paste garbage, get lost, and do things nobody planned for.'
-			)),
+			SystemMessage(
+				content=(
+					'You are a senior QA strategist who designs test suites that find real problems. '
+					'Your job is NOT to verify happy paths — any junior can do that. '
+					'Your job is to think like real users: confused, impatient, angry, adversarial, and exploratory. '
+					'Each test should simulate a REALISTIC human behavior, not a robotic verification step. '
+					'Real users misclick, rage-type, paste garbage, get lost, and do things nobody planned for.'
+				)
+			),
 			UserMessage(content=prompt),
 		],
 		output_format=TestPlan,
@@ -212,15 +225,399 @@ Do NOT generate tests that require authentication/login unless a login page was 
 	return test_plan
 
 
+# ─── Exploration-first plan generation ────────────────────────────────────────
+
+
+def _build_exploration_prompt(task: str, url: str) -> str:
+	"""Discovery prompt for the explore agent."""
+	return (
+		f'You are exploring {url} to understand its UI for a specific task.\n\n'
+		f'TASK: {task}\n\n'
+		f'YOUR JOB:\n'
+		f'1. Start from the home page.\n'
+		f'2. Discover TWO candidate navigation routes to the page/feature relevant to the task.\n'
+		f'3. Validate both routes — pick the most reliable one.\n'
+		f'4. Execute the core happy-path flow ONCE end-to-end.\n'
+		f'5. Capture concrete page URLs, control labels, and element types you interact with.\n\n'
+		f'RULES:\n'
+		f'- This is READ-ONLY exploration. Do NOT click "Delete" or confirm irreversible actions.\n'
+		f'- Stay on the same domain as {url}.\n'
+		f'- STOP once the core flow is confirmed — do not re-check or explore further.\n'
+		f'- Note any alternative routes, form fields, buttons, dropdowns, and validation messages.\n'
+	)
+
+
+def _build_generation_prompt(task: str, url: str, exploration_context: str, max_scenarios: int) -> str:
+	"""Synthesis prompt with persona requirements for generating a plan from exploration data."""
+	return (
+		f'Based on the following exploration of {url}, generate {max_scenarios} test scenarios.\n\n'
+		f'TASK: {task}\n\n'
+		f'EXPLORATION CONTEXT (observed UI evidence):\n{exploration_context}\n\n'
+		f'REQUIREMENTS:\n'
+		f'- Generate exactly {max_scenarios} scenarios (minimum 5 if max allows).\n'
+		f'- Must include these personas: happy_path, confused_novice, adversarial, edge_case, explorer.\n'
+		f'- At least one scenario must be happy_path with priority=critical.\n'
+		f'- The happy_path scenario must describe the chosen route AND mention alternatives considered.\n'
+		f'- steps_description must include at least 2-3 numbered steps with specific UI element references.\n'
+		f'- success_criteria must reference observable UI signals (toasts, badges, list rows, confirmation messages).\n'
+		f'- Do NOT fabricate URLs — only reference pages/paths observed in the exploration context.\n'
+		f'- For non-happy-path tests: evaluate how the website HANDLES unexpected behavior.\n\n'
+		f'PERSONA DISTRIBUTION:\n'
+		f'- happy_path (~20%): Standard user completing the expected flow.\n'
+		f'- confused_novice (~15%): Misclicks, wrong inputs, backtracking.\n'
+		f'- adversarial (~15%): XSS payloads, SQL injection, probing /admin.\n'
+		f'- edge_case (~15%): Empty inputs, special chars, long strings.\n'
+		f'- explorer (~10%): Unusual navigation, unexpected feature combos.\n'
+		f'- impatient_user (~15%): Rapid clicks, skipping steps.\n'
+		f'- angry_user (~10%): Rage-clicks, profanity in inputs.\n'
+	)
+
+
+def _summarize_exploration_from_actions(actions: list[dict[str, Any]], url: str) -> str:
+	"""Extract pages visited, clicks, and inputs from action history into a text summary."""
+	lines: list[str] = []
+	pages_seen: list[str] = []
+
+	for i, action in enumerate(actions, 1):
+		interacted = action.get('interacted_element')
+		for key, val in action.items():
+			if key == 'interacted_element':
+				continue
+
+			if key in ('navigate', 'go_to_url'):
+				nav_url = val.get('url', '?') if isinstance(val, dict) else '?'
+				lines.append(f'{i}. NAVIGATE → {nav_url}')
+				if isinstance(val, dict) and val.get('url'):
+					pages_seen.append(val['url'])
+
+			elif key == 'click_element':
+				el_desc = ''
+				if interacted and isinstance(interacted, dict):
+					tag = interacted.get('tag_name', '?')
+					text = interacted.get('text', '')
+					href = (
+						interacted.get('attributes', {}).get('href', '') if isinstance(interacted.get('attributes'), dict) else ''
+					)
+					el_desc = f'<{tag}> "{text}"'
+					if href:
+						el_desc += f' → href="{href}"'
+				else:
+					idx = val.get('index', '?') if isinstance(val, dict) else '?'
+					el_desc = f'element {idx}'
+				lines.append(f'{i}. CLICK {el_desc}')
+
+			elif key == 'input_text':
+				text = val.get('text', '') if isinstance(val, dict) else ''
+				lines.append(f'{i}. TYPE "{text[:50]}"')
+
+			elif key == 'scroll':
+				direction = 'down' if (isinstance(val, dict) and val.get('down', True)) else 'up'
+				lines.append(f'{i}. SCROLL {direction}')
+
+			elif key == 'done':
+				lines.append(f'{i}. DONE')
+
+	# Deduplicate pages
+	unique_pages = list(dict.fromkeys(pages_seen))
+	summary_parts = []
+	if unique_pages:
+		summary_parts.append('Pages visited:\n' + '\n'.join(f'  - {p}' for p in unique_pages))
+	summary_parts.append('\nAction trace:\n' + '\n'.join(lines) if lines else '(no actions)')
+	return '\n'.join(summary_parts)
+
+
+def _scenario_quality_issues(task: str, scenario: TestScenario) -> list[str]:
+	"""Per-scenario quality validation. Returns list of issue descriptions."""
+	issues: list[str] = []
+	task_lower = task.lower()
+	task_words = set(re.findall(r'\w+', task_lower))
+
+	# 1. Task alignment — scenario keywords should overlap with task
+	scenario_text = f'{scenario.name} {scenario.description} {scenario.steps_description}'.lower()
+	scenario_words = set(re.findall(r'\w+', scenario_text))
+	overlap = task_words & scenario_words - {'the', 'a', 'an', 'to', 'is', 'and', 'or', 'in', 'on', 'for', 'of', 'with'}
+	if len(overlap) < 1 and scenario.test_persona == 'happy_path':
+		issues.append(f'Scenario "{scenario.name}" has no keyword overlap with task "{task}"')
+
+	# 2. Step clarity — at least 2 numbered/dotted steps
+	steps = scenario.steps_description
+	step_lines = [line for line in steps.split('\n') if re.match(r'^\s*(\d+[\.\)]\s|[-•]\s)', line.strip())]
+	if len(step_lines) < 2:
+		issues.append(f'Scenario "{scenario.name}" has fewer than 2 explicit steps')
+
+	# 3. Observable criteria — success criteria should reference UI signals
+	criteria_lower = scenario.success_criteria.lower()
+	ui_signals = [
+		'visible',
+		'appears',
+		'displayed',
+		'shows',
+		'confirmation',
+		'toast',
+		'badge',
+		'error',
+		'message',
+		'redirect',
+		'page',
+		'list',
+		'row',
+	]
+	if not any(signal in criteria_lower for signal in ui_signals):
+		issues.append(f'Scenario "{scenario.name}" success criteria lack observable UI signals')
+
+	# 4. No fabricated URLs — reject patterns like "/spaces/" or bare http:// in steps
+	if re.search(r'https?://(?!.*(?:' + re.escape(task.split()[0] if task.split() else '') + r'))', steps):
+		# Only flag if URL doesn't look related to the task
+		pass  # Relaxed — hard to validate without exploration data
+
+	# 5. Generic phrases — flag vague phrasing outside confused_novice persona
+	vague_patterns = ['click random', 'click any', 'click something']
+	if scenario.test_persona != 'confused_novice':
+		for pattern in vague_patterns:
+			if pattern in steps.lower():
+				issues.append(f'Scenario "{scenario.name}" uses vague "{pattern}" outside confused_novice persona')
+
+	return issues
+
+
+def _plan_quality_issues(task: str, plan: TestPlan) -> list[str]:
+	"""Plan-level quality validation. Returns list of issue descriptions."""
+	issues: list[str] = []
+
+	# 1. Minimum scenarios
+	if len(plan.scenarios) < 5:
+		issues.append(f'Plan has only {len(plan.scenarios)} scenarios (minimum 5)')
+
+	# 2. Required personas
+	personas_present = {s.test_persona for s in plan.scenarios}
+	required_personas = {'happy_path', 'confused_novice', 'adversarial', 'edge_case', 'explorer'}
+	missing = required_personas - personas_present
+	if missing:
+		issues.append(f'Missing required personas: {", ".join(sorted(missing))}')
+
+	# 3. Critical happy path
+	has_critical_happy = any(s.test_persona == 'happy_path' and s.priority == 'critical' for s in plan.scenarios)
+	if not has_critical_happy:
+		issues.append('No happy_path scenario with priority=critical')
+
+	# 4. Per-scenario quality
+	for s in plan.scenarios:
+		scenario_issues = _scenario_quality_issues(task, s)
+		issues.extend(scenario_issues)
+
+	# 5. Task relevance — max 33% can be unrelated by keyword overlap
+	task_words = set(re.findall(r'\w+', task.lower())) - {
+		'the',
+		'a',
+		'an',
+		'to',
+		'is',
+		'and',
+		'or',
+		'in',
+		'on',
+		'for',
+		'of',
+		'with',
+	}
+	unrelated = 0
+	for s in plan.scenarios:
+		scenario_text = f'{s.name} {s.description}'.lower()
+		scenario_words = set(re.findall(r'\w+', scenario_text))
+		if not (task_words & scenario_words):
+			unrelated += 1
+	if plan.scenarios and unrelated / len(plan.scenarios) > 0.33:
+		issues.append(f'{unrelated}/{len(plan.scenarios)} scenarios appear unrelated to task')
+
+	return issues
+
+
+async def explore_and_generate_plan(
+	task: str,
+	url: str,
+	llm: ChatOpenAI,
+	session: BrowserSession,
+	max_scenarios: int = 8,
+	max_steps: int = 30,
+) -> TestPlan:
+	"""Exploration-first plan generation: explore → summarize → synthesize with quality checks."""
+	from murphy.actions import register_domain_access_action, register_refresh_dom_action
+	from murphy.session_utils import prepare_session_for_task
+
+	print(f'\n{"=" * 60}')
+	print('Exploration-first plan generation')
+	print(f'  Task: {task}')
+	print(f'  URL: {url}')
+	print(f'{"=" * 60}\n')
+
+	# Step 1: Prepare session
+	await prepare_session_for_task(session, url, force_navigate=False)
+
+	# Step 2: Run exploration agent
+	print('Phase 1: Exploring UI...')
+	explore_agent = Agent(
+		task=_build_exploration_prompt(task, url),
+		llm=llm,
+		browser_session=session,
+		use_judge=False,
+		max_actions_per_step=3,
+	)
+	# Register custom actions on the explore agent's tools
+	register_domain_access_action(explore_agent.tools, session)
+	register_refresh_dom_action(explore_agent.tools, session)
+
+	explore_steps = min(max_steps, 14)
+	explore_history = await explore_agent.run(max_steps=explore_steps)
+
+	# Step 3: Synthesize discovered context
+	exploration_context = _summarize_exploration_from_actions(
+		explore_history.model_actions(),
+		url,
+	)
+	print(f'\n  Exploration complete. Summarized {len(explore_history.model_actions())} actions.\n')
+
+	# Step 4: Generate plan with quality checks
+	print('Phase 2: Synthesizing test plan...')
+	synthesis_prompt = _build_generation_prompt(task, url, exploration_context, max_scenarios)
+
+	max_retries = 2
+	best_plan: TestPlan | None = None
+
+	for attempt in range(max_retries + 1):
+		retry_hint = ''
+		if attempt > 0 and best_plan is not None:
+			quality_issues = _plan_quality_issues(task, best_plan)
+			if quality_issues:
+				retry_hint = (
+					'\n\nPREVIOUS ATTEMPT HAD QUALITY ISSUES — fix these:\n'
+					+ '\n'.join(f'- {issue}' for issue in quality_issues)
+					+ '\n'
+				)
+			else:
+				break  # No issues, accept the plan
+
+		response = await llm.ainvoke(
+			messages=[
+				SystemMessage(
+					content=(
+						'You are a QA strategist. Produce valid structured test plans from observed UI evidence. '
+						'Every scenario must reference concrete UI elements observed during exploration.'
+					)
+				),
+				UserMessage(content=synthesis_prompt + retry_hint),
+			],
+			output_format=TestPlan,
+		)
+
+		plan = response.completion
+		assert isinstance(plan, TestPlan), f'Expected TestPlan, got {type(plan)}'
+
+		# If empty, retry with explicit instruction
+		if not plan.scenarios and attempt < max_retries:
+			retry_hint = '\n\nYou returned an empty plan. Generate 5-8 scenarios with diverse personas.\n'
+			continue
+
+		best_plan = plan
+
+		# Check quality on first attempt — retry if issues found
+		if attempt == 0:
+			quality_issues = _plan_quality_issues(task, plan)
+			if not quality_issues:
+				break
+			print(f'  Quality issues found ({len(quality_issues)}), regenerating...')
+		else:
+			break
+
+	assert best_plan is not None and best_plan.scenarios, 'Failed to generate any test scenarios'
+
+	_log_plan_summary(best_plan)
+	return best_plan
+
+
+def _log_plan_summary(plan: TestPlan) -> None:
+	"""Print generated plan summary."""
+	print(f'Generated {len(plan.scenarios)} test scenarios:')
+	for i, s in enumerate(plan.scenarios, 1):
+		print(f'  {i}. [{s.priority.upper()}] [{s.test_persona}] {s.name} ({s.feature_category})')
+
+
+# ─── Enhanced execution prompt ────────────────────────────────────────────────
+
+
+def _build_execution_prompt(global_task: str, scenario: TestScenario, start_url: str) -> str:
+	"""Build execution prompt with validation rules."""
+	return (
+		f'Test: {scenario.name}\n\n'
+		f'Global task context: {global_task}\n\n'
+		f'Description: {scenario.description}\n\n'
+		f'Steps:\n{scenario.steps_description}\n\n'
+		f'Success criteria: {scenario.success_criteria}\n\n'
+		f'IMPORTANT: You are already logged in. Be direct and efficient. '
+		f'Complete the test as fast as possible with minimal steps.\n\n'
+		f'ADAPTATION RULES:\n'
+		f'- If clicking a button returns a "disabled" error, do NOT retry the same click. Analyze why it is disabled — likely required fields need to be filled first, or a prerequisite step is missing.\n'
+		f'- If search_page returns 0 results, the content does not exist on this page. Do NOT repeat the same search or scroll hoping it appears. Try alternative navigation or different search terms.\n'
+		f'- If the expected UI element is not found after 2 attempts, the page structure differs from expectations. Report what you actually observe and complete the test with that information.\n'
+		f'- Your step budget is limited. Never repeat a failed action more than once.\n\n'
+		f'VALIDATION RULES:\n'
+		f'- Validate outcome state before returning success (no inference from partial signals).\n'
+		f'- Use visible UI signals only: toasts, badges, list rows, detail cards, confirmation messages.\n'
+		f'- For create flows: confirm new entity appears with a recognizable identifier.\n'
+		f'- For delete flows: confirm entity is absent from list/search.\n'
+		f'- For edit flows: reopen and confirm updates persist.\n'
+		f'- If evidence is ambiguous, return success=false.\n'
+	)
+
+
+# ─── Structured output parsing ────────────────────────────────────────────────
+
+
+def _parse_structured_output(
+	history: AgentHistoryList, model_cls: type[ScenarioExecutionVerdict]
+) -> ScenarioExecutionVerdict | None:
+	"""Safely parse structured output from agent history."""
+	result = history.final_result()
+	if not result:
+		return None
+	try:
+		return model_cls.model_validate_json(result)
+	except Exception:
+		# Try parsing as dict
+		try:
+			import json
+
+			data = json.loads(result)
+			return model_cls.model_validate(data)
+		except Exception:
+			return None
+
+
+def _extract_pages_visited(actions: list[dict[str, Any]], start_url: str) -> list[str]:
+	"""Extract unique pages visited from action history."""
+	pages: list[str] = [start_url]
+	for action in actions:
+		for key, val in action.items():
+			if key in ('navigate', 'go_to_url') and isinstance(val, dict):
+				url = val.get('url', '')
+				if url:
+					pages.append(url)
+	# Deduplicate preserving order
+	seen: set[str] = set()
+	unique: list[str] = []
+	for p in pages:
+		if p not in seen:
+			seen.add(p)
+			unique.append(p)
+	return unique
+
+
 # ─── Phase 3: Execute & Report ─────────────────────────────────────────────────
 
 
-async def execute_tests(
-	url: str, test_plan: TestPlan, llm: ChatOpenAI, progress_state: Any = None
-) -> list[TestResult]:
-	print(f'\n{"="*60}')
+async def execute_tests(url: str, test_plan: TestPlan, llm: ChatOpenAI, progress_state: Any = None) -> list[TestResult]:
+	print(f'\n{"=" * 60}')
 	print(f'Phase 3: Executing {len(test_plan.scenarios)} tests')
-	print(f'{"="*60}\n')
+	print(f'{"=" * 60}\n')
 
 	browser_session = BrowserSession(browser_profile=BrowserProfile(keep_alive=True))
 	await browser_session.start()
@@ -266,6 +663,11 @@ async def execute_tests(
 				actions=history.model_actions(),
 				errors=history.errors(),
 				duration=history.total_duration_seconds(),
+				pages_visited=_extract_pages_visited(history.model_actions(), url),
+				process_evaluation=judgement.get('process_evaluation', ''),
+				logical_evaluation=judgement.get('logical_evaluation', ''),
+				usability_evaluation=judgement.get('usability_evaluation', ''),
+				reason=judgement.get('failure_reason', ''),
 			)
 			test_result.failure_category = classify_failure(test_result)
 			results.append(test_result)
@@ -278,6 +680,107 @@ async def execute_tests(
 
 	finally:
 		await browser_session.kill()
+
+	return results
+
+
+async def execute_tests_with_session(
+	url: str,
+	test_plan: TestPlan,
+	llm: ChatOpenAI,
+	browser_session: BrowserSession,
+	progress_state: Any = None,
+	goal: str | None = None,
+	fixture_paths: list[Path] | None = None,
+	max_steps: int = 15,
+) -> list[TestResult]:
+	"""Phase 3 execution reusing an existing browser session.
+
+	Uses BOTH structured agent verdict (ScenarioExecutionVerdict) AND murphy judge.
+	"""
+	from murphy.actions import register_domain_access_action, register_refresh_dom_action
+	from murphy.session_utils import prepare_session_for_task
+
+	print(f'\n{"=" * 60}')
+	print(f'Phase 3: Executing {len(test_plan.scenarios)} tests')
+	print(f'{"=" * 60}\n')
+
+	results: list[TestResult] = []
+	file_paths_str = [str(p) for p in fixture_paths] if fixture_paths else []
+
+	for i, scenario in enumerate(test_plan.scenarios, 1):
+		print(f'\n--- Test {i}/{len(test_plan.scenarios)}: {scenario.name} ---')
+		if progress_state is not None:
+			progress_state.current_test = i
+
+		# Stabilize session between tests
+		await prepare_session_for_task(browser_session, url, force_navigate=False)
+
+		task_prompt = (
+			_build_execution_prompt(goal or '', scenario, url)
+			if goal
+			else (
+				f'Test: {scenario.name}\n\n'
+				f'Description: {scenario.description}\n\n'
+				f'Steps:\n{scenario.steps_description}\n\n'
+				f'Success criteria: {scenario.success_criteria}\n\n'
+				f'IMPORTANT: You are already logged in. Be direct and efficient. '
+				f'Complete the test as fast as possible with minimal steps.'
+			)
+		)
+
+		agent_kwargs: dict[str, Any] = {
+			'task': task_prompt,
+			'llm': llm,
+			'browser_session': browser_session,
+			'use_judge': False,
+			'max_actions_per_step': 3,
+		}
+		if file_paths_str:
+			agent_kwargs['available_file_paths'] = file_paths_str
+
+		# Use structured output for the verdict
+		agent_kwargs['output_model_schema'] = ScenarioExecutionVerdict
+
+		agent = Agent(**agent_kwargs)
+		# Register custom actions
+		register_domain_access_action(agent.tools, browser_session)
+		register_refresh_dom_action(agent.tools, browser_session)
+
+		history = await agent.run(max_steps=max_steps)
+
+		# Parse structured verdict from agent
+		verdict = _parse_structured_output(history, ScenarioExecutionVerdict)
+
+		# Also run murphy judge for authoritative pass/fail
+		judgement = await murphy_judge(history, scenario, llm)
+
+		# Merge: use judge verdict as authoritative, but overlay agent's evaluations
+		success = judgement['verdict']
+		status = 'PASS' if success else 'FAIL'
+		print(f'  Result: {status} ({history.total_duration_seconds():.1f}s)')
+
+		# Prefer verdict evaluations if available, fall back to judge's
+		process_eval = (verdict.process_evaluation if verdict else '') or judgement.get('process_evaluation', '')
+		logical_eval = (verdict.logical_evaluation if verdict else '') or judgement.get('logical_evaluation', '')
+		usability_eval = (verdict.usability_evaluation if verdict else '') or judgement.get('usability_evaluation', '')
+		reason = (verdict.reason if verdict else '') or judgement.get('failure_reason', '')
+
+		test_result = TestResult(
+			scenario=scenario,
+			success=success,
+			judgement=judgement,
+			actions=history.model_actions(),
+			errors=history.errors(),
+			duration=history.total_duration_seconds(),
+			pages_visited=_extract_pages_visited(history.model_actions(), url),
+			process_evaluation=process_eval,
+			logical_evaluation=logical_eval,
+			usability_evaluation=usability_eval,
+			reason=reason,
+		)
+		test_result.failure_category = classify_failure(test_result)
+		results.append(test_result)
 
 	return results
 
@@ -344,14 +847,19 @@ async def main():
 
 	if args.plan:
 		from murphy.test_plan_io import load_test_plan
+
 		plan_path = Path(args.plan)
 		url, test_plan = load_test_plan(plan_path)
 		if url != args.url:
 			print(f'WARNING: Plan URL ({url}) differs from positional url ({args.url}). Using positional.')
 		print(f'Loaded {len(test_plan.scenarios)} scenarios from {plan_path}')
 		analysis = WebsiteAnalysis(
-			site_name=args.url, category='unknown', description='Loaded from plan file',
-			key_pages=[], features=[], identified_user_flows=[],
+			site_name=args.url,
+			category='unknown',
+			description='Loaded from plan file',
+			key_pages=[],
+			features=[],
+			identified_user_flows=[],
 		)
 	else:
 		# Phase 1
@@ -362,6 +870,7 @@ async def main():
 
 		# Save test plan to YAML
 		from murphy.test_plan_io import save_test_plan
+
 		plan_path = save_test_plan(args.url, test_plan, output_dir)
 		print(f'\n  Test plan saved: {plan_path}')
 
@@ -421,9 +930,9 @@ def _write_reports_and_print(
 	json_path = write_json_report(report, output_dir)
 	md_path = write_markdown_report(report, output_dir)
 
-	print(f'\n{"="*60}')
-	print(f'Evaluation Complete')
-	print(f'{"="*60}')
+	print(f'\n{"=" * 60}')
+	print('Evaluation Complete')
+	print(f'{"=" * 60}')
 	print(f'\n  Pass rate: {summary.pass_rate}% ({summary.passed}/{summary.total})')
 	print(f'  JSON report: {json_path}')
 	print(f'  Markdown report: {md_path}')

@@ -1,6 +1,6 @@
 [project]
-name = "browser-use"
-description = "Make websites accessible for AI agents"
+name = "murphy"
+description = "AI-driven website evaluation powered by browser-use"
 authors = [{ name = "Gregor Zunic" }]
 version = "0.11.10a1"
 readme = "README.md"
@@ -80,8 +80,8 @@ eval = [
     "psutil>=7.0.0",
     "datamodel-code-generator>=0.26.0",
 ]
-cli-oci = ["browser-use[cli,oci]"]
-all = ["browser-use[cli,examples,aws,oci]"]
+cli-oci = ["murphy[cli,oci]"]
+all = ["murphy[cli,examples,aws,oci]"]
 
 # will prefer to use local source code checked out in ../../browser-use (if present) instead of pypi browser-use package
 # [tool.uv.sources]
@@ -92,12 +92,12 @@ all = ["browser-use[cli,examples,aws,oci]"]
 Repository = "https://github.com/browser-use/browser-use"
 
 [project.scripts]
-browser-use = "browser_use.skill_cli.main:main"  # Fast CLI for browser automation
+murphy = "murphy.cli:main"  # AI-driven website evaluation (primary)
+browser-use = "browser_use.skill_cli.main:main"  # browser-use CLI
 browseruse = "browser_use.skill_cli.main:main"  # Alias for browser-use
 bu = "browser_use.skill_cli.main:main"  # Alias for browser-use
 browser = "browser_use.skill_cli.main:main"  # Alias for browser-use
 browser-use-tui = "browser_use.cli:main"  # Legacy TUI interface
-murphy = "murphy.cli:main"  # AI-driven website evaluation
 
 [build-system]
 requires = ["hatchling"]
@@ -135,7 +135,7 @@ skip-magic-trailing-comma = false
 
 [tool.pyright]
 typeCheckingMode = "basic"
-include = ["browser_use", "examples", "tests"]
+include = ["murphy", "browser_use", "examples", "tests"]
 exclude = [
     ".venv/",
     ".venv*/",
@@ -149,7 +149,7 @@ exclude = [
     "tests/scripts/*",
     "tests/old/*",
     "browser_use/dom/playground/*",
-    "examples/use-cases/onepassword.py",
+    "examples/browser_use/use-cases/onepassword.py",
     "browser_use/llm/oci_raw/*",
     "browser_use/llm/tests/test_chat_models.py",
     "browser_use/llm/tests/test_single_step.py",
@@ -164,6 +164,7 @@ reportMissingTypeStubs = false
 
 [tool.hatch.build]
 include = [
+    "murphy/**/*.py",
     "browser_use/**/*.py",
     "!browser_use/**/tests/*.py",
     "!browser_use/**/tests.py",

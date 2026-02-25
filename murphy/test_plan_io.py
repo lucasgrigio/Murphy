@@ -15,18 +15,18 @@ from murphy.models import TestPlan, TestScenario
 def save_test_plan(url: str, test_plan: TestPlan, output_dir: Path) -> Path:
 	"""Save a test plan to YAML for human review/editing."""
 	output_dir.mkdir(parents=True, exist_ok=True)
-	path = output_dir / "test_plan.yaml"
+	path = output_dir / 'test_plan.yaml'
 
 	data = {
-		"url": url,
-		"generated_at": datetime.now(timezone.utc).isoformat(),
-		"scenarios": [s.model_dump() for s in test_plan.scenarios],
+		'url': url,
+		'generated_at': datetime.now(timezone.utc).isoformat(),
+		'scenarios': [s.model_dump() for s in test_plan.scenarios],
 	}
 
-	with open(path, "w") as f:
-		f.write(f"# Murphy Test Plan — {url}\n")
-		f.write(f"# Generated: {data['generated_at']}\n")
-		f.write("# Edit freely: add/remove/modify scenarios, then re-run with --plan flag.\n\n")
+	with open(path, 'w') as f:
+		f.write(f'# Murphy Test Plan — {url}\n')
+		f.write(f'# Generated: {data["generated_at"]}\n')
+		f.write('# Edit freely: add/remove/modify scenarios, then re-run with --plan flag.\n\n')
 		yaml.dump(data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
 	return path
@@ -37,9 +37,9 @@ def load_test_plan(path: Path) -> tuple[str, TestPlan]:
 	with open(path) as f:
 		data = yaml.safe_load(f)
 
-	assert isinstance(data, dict), f"Expected YAML dict, got {type(data)}"
-	assert "url" in data, "YAML missing 'url' field"
-	assert "scenarios" in data, "YAML missing 'scenarios' field"
+	assert isinstance(data, dict), f'Expected YAML dict, got {type(data)}'
+	assert 'url' in data, "YAML missing 'url' field"
+	assert 'scenarios' in data, "YAML missing 'scenarios' field"
 
-	scenarios = [TestScenario.model_validate(s) for s in data["scenarios"]]
-	return data["url"], TestPlan(scenarios=scenarios)
+	scenarios = [TestScenario.model_validate(s) for s in data['scenarios']]
+	return data['url'], TestPlan(scenarios=scenarios)

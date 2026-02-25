@@ -2,7 +2,32 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Browser-Use is an async python >= 3.11 library that implements AI browser driver abilities using LLMs + CDP (Chrome DevTools Protocol). The core architecture enables AI agents to autonomously navigate web pages, interact with elements, and complete complex tasks by processing HTML and making LLM-driven decisions.
+## Murphy — Primary Project
+
+Murphy is an AI-driven website evaluation tool. It automatically analyzes websites, generates test scenarios, and executes them with an AI browser agent. The primary package is `murphy/` at the repo root.
+
+**Murphy commands:**
+```bash
+uv run murphy --url https://example.com --no-auth              # full eval (feature discovery)
+uv run murphy --url https://example.com --goal "check login"   # goal-directed eval (exploration-first)
+uv run murphy --url https://example.com --auth --ui             # with auth + web UI
+```
+
+**Murphy file organization (`murphy/`):**
+- `cli.py` — CLI entry point and orchestration
+- `evaluate.py` — core evaluation logic (exploration, plan generation, test execution)
+- `judge.py` — LLM judge for pass/fail verdicts
+- `models.py` — pydantic models (TestPlan, TestResult, ScenarioExecutionVerdict, etc.)
+- `report.py` — markdown report generation
+- `server.py` — web UI server
+- `actions.py` — custom agent actions (domain access, DOM refresh)
+- `session_utils.py` — session management helpers
+- `patches.py` — monkey-patches for schema resolution
+- `fixtures.py` + `fixtures/` — dummy upload files for test scenarios
+
+## Browser-Use — Engine
+
+Browser-Use is the async python >= 3.11 library that powers Murphy's browser automation. It implements AI browser driver abilities using LLMs + CDP (Chrome DevTools Protocol). The core architecture enables AI agents to autonomously navigate web pages, interact with elements, and complete complex tasks by processing HTML and making LLM-driven decisions.
 
 ## High-Level Architecture
 

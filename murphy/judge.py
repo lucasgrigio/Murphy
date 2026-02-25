@@ -15,7 +15,6 @@ from pydantic import BaseModel
 
 from browser_use.agent.views import AgentHistoryList
 from browser_use.llm import ChatOpenAI, SystemMessage, UserMessage
-
 from murphy.models import TestScenario
 
 JUDGE_SYSTEM_PROMPT = """\
@@ -61,6 +60,16 @@ If verdict is FALSE, you MUST also classify the failure:
 - **test_limitation**: The agent could NOT complete the test itself — couldn't find an element, ran out of steps, navigated to wrong page, test steps were ambiguous or impossible.
 
 If verdict is TRUE, set failure_category to null.
+
+## Evaluation dimensions
+
+In addition to the verdict, provide three brief evaluation assessments:
+
+1. **process_evaluation**: Assess the step-by-step process quality. Was the flow smooth or did the user encounter friction (extra clicks, unclear navigation, redundant confirmations)? Note any unnecessary steps or confusing transitions.
+2. **logical_evaluation**: Assess UI/system logic consistency. Did the application behave logically? Were state changes consistent? Did buttons do what labels promised? Were error messages accurate?
+3. **usability_evaluation**: Assess clarity, affordances, and user-friendliness. Were controls discoverable? Was feedback timely? Were labels clear? Would a real user understand what to do next at each step?
+
+Keep each evaluation to 1-3 sentences grounded in the observed action trace.
 """
 
 JUDGE_USER_TEMPLATE = """\
@@ -88,6 +97,14 @@ JUDGE_USER_TEMPLATE = """\
 
 ---
 
+## Validation rules
+- Validate outcome state before returning a verdict (no inference from partial signals).
+- Use visible UI signals only: toasts, badges, list rows, detail cards, confirmation messages.
+- For create flows: confirm new entity appears with a recognizable identifier.
+- For delete flows: confirm entity is absent from list/search.
+- For edit flows: reopen and confirm updates persist.
+- If evidence is ambiguous, return verdict=false.
+
 Based on the Navigation Evidence and Pages Reached, did the agent successfully complete this test?
 """
 
@@ -99,6 +116,9 @@ class JudgeVerdict(BaseModel):
 	impossible_task: bool
 	reached_captcha: bool
 	failure_category: Literal['website_issue', 'test_limitation'] | None
+	process_evaluation: str = ''
+	logical_evaluation: str = ''
+	usability_evaluation: str = ''
 
 
 def _extract_navigation_evidence(history: AgentHistoryList) -> str:
@@ -216,7 +236,7 @@ async def murphy_judge(
 
 	# Errors
 	errors = history.errors()
-	errors_text = '\n'.join(f'  - Step {i+1}: {e}' for i, e in enumerate(errors) if e) if any(errors) else '(none)'
+	errors_text = '\n'.join(f'  - Step {i + 1}: {e}' for i, e in enumerate(errors) if e) if any(errors) else '(none)'
 
 	# Final result
 	final_result = history.final_result() or '(no final response)'

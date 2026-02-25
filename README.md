@@ -19,7 +19,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 **2. Clone and install dependencies:**
 ```bash
 git clone https://github.com/ProsusAI/Murphy.git
-cd browser-use
+cd Murphy
 uv sync
 ```
 
@@ -41,7 +41,7 @@ OPENAI_API_KEY=sk-...
 
 **1. Build the image:**
 ```bash
-docker build . -t browseruse --no-cache
+docker build . -t murphy --no-cache
 ```
 
 **2. Create `.env` with your API key** (same as above).

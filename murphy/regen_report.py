@@ -1,6 +1,7 @@
 """Quick script to regenerate markdown from existing JSON report."""
 
 from pathlib import Path
+
 from murphy.models import EvaluationReport
 from murphy.report import write_markdown_report
 

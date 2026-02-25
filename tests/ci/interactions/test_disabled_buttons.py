@@ -10,7 +10,6 @@ import pytest
 from browser_use.browser import BrowserProfile, BrowserSession
 from browser_use.browser.events import ClickElementEvent
 
-
 DISABLED_BUTTONS_HTML = """
 <!DOCTYPE html>
 <html>

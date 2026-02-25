@@ -11,9 +11,8 @@ from typing import Any
 
 from aiohttp import web
 
-from murphy.models import TestPlan, TestResult, WebsiteAnalysis, ReportSummary
+from murphy.models import ReportSummary, TestPlan, TestResult, WebsiteAnalysis
 from murphy.report import _format_path, _suggest_fix
-
 
 # ─── State shared between handlers ───────────────────────────────────────────
 
@@ -78,13 +77,15 @@ async def handle_status(request: web.Request) -> web.Response:
 	current_name = ''
 	if state.running and 0 < state.current_test <= len(state.test_plan.scenarios):
 		current_name = state.test_plan.scenarios[state.current_test - 1].name
-	return web.json_response({
-		'running': state.running,
-		'done': state.done,
-		'current_test': state.current_test,
-		'current_test_name': current_name,
-		'total': state.total,
-	})
+	return web.json_response(
+		{
+			'running': state.running,
+			'done': state.done,
+			'current_test': state.current_test,
+			'current_test_name': current_name,
+			'total': state.total,
+		}
+	)
 
 
 async def handle_results(request: web.Request) -> web.Response:
@@ -232,18 +233,18 @@ def _format_action_html(action: Any) -> str:
 			continue
 		icon = {
 			'navigate': '&#x1f310;',  # globe
-			'click': '&#x1f5b1;',     # mouse
-			'type': '&#x2328;',       # keyboard
-			'scroll': '&#x2195;',     # up-down arrow
-			'done': '&#x2705;',       # checkmark
-			'extract': '&#x1f4cb;',   # clipboard
-			'wait': '&#x23f3;',       # hourglass
-			'go_back': '&#x2b05;',    # left arrow
-			'switch_tab': '&#x1f4c4;', # page
-			'search': '&#x1f50d;',    # magnifying glass
-			'input_text': '&#x2328;', # keyboard
-			'select_option': '&#x2611;', # checkbox
-			'open_tab': '&#x2795;',   # plus
+			'click': '&#x1f5b1;',  # mouse
+			'type': '&#x2328;',  # keyboard
+			'scroll': '&#x2195;',  # up-down arrow
+			'done': '&#x2705;',  # checkmark
+			'extract': '&#x1f4cb;',  # clipboard
+			'wait': '&#x23f3;',  # hourglass
+			'go_back': '&#x2b05;',  # left arrow
+			'switch_tab': '&#x1f4c4;',  # page
+			'search': '&#x1f50d;',  # magnifying glass
+			'input_text': '&#x2328;',  # keyboard
+			'select_option': '&#x2611;',  # checkbox
+			'open_tab': '&#x2795;',  # plus
 		}.get(action_type, '&#x2022;')  # bullet dot
 
 		_expand_counter[0] += 1
@@ -312,7 +313,9 @@ def _render_features_summary_html(analysis: WebsiteAnalysis) -> str:
 	for cat, features in by_category.items():
 		html_parts.append(f'<div class="group-header">{_e(cat.replace("_", " ").title())} ({len(features)})</div>')
 		for f in features:
-			testability_color = {'testable': 'var(--green)', 'partial': 'var(--orange)', 'untestable': 'var(--gray)'}[f.testability]
+			testability_color = {'testable': 'var(--green)', 'partial': 'var(--orange)', 'untestable': 'var(--gray)'}[
+				f.testability
+			]
 			importance_label = f.importance.upper()
 			html_parts.append(
 				f'<div class="card" style="padding:.75rem 1.25rem">'
@@ -355,7 +358,7 @@ def _render_plan_html(url: str, analysis: WebsiteAnalysis, test_plan: TestPlan) 
 		label = _PERSONA_LABELS.get(persona, persona.replace('_', ' ').title())
 		cards_html += f'<div class="group-header"><span class="badge badge-persona badge-{persona}">{_e(label)}</span> ({len(items)})</div>\n'
 		for idx, s in items:
-			cards_html += f'''<div class="card">
+			cards_html += f"""<div class="card">
 	<div class="card-header" onclick="toggle({idx})">
 		<span class="arrow" id="arrow-{idx}">&#9654;</span>
 		<span class="test-name">{_e(s.name)}</span>
@@ -369,9 +372,9 @@ def _render_plan_html(url: str, analysis: WebsiteAnalysis, test_plan: TestPlan) 
 		<div class="detail"><strong>Success criteria:</strong> {_e(s.success_criteria)}</div>
 		<div class="steps">{_e(s.steps_description)}</div>
 	</div>
-</div>\n'''
+</div>\n"""
 
-	return f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>Murphy — Test Plan Review</title>
+	return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Murphy — Test Plan Review</title>
 <style>{_CSS}</style></head><body>
 <h1>Murphy — Test Plan Review</h1>
 <div class="subtitle">{_e(analysis.site_name)} &middot; {_e(url)} &middot; {len(test_plan.scenarios)} tests</div>
@@ -410,7 +413,7 @@ function pollStatus() {{
 		setTimeout(pollStatus, 2000);
 	}});
 }}
-</script></body></html>'''
+</script></body></html>"""
 
 
 def _render_results_html(
@@ -449,7 +452,7 @@ def _render_results_html(
 			f'</div>'
 		)
 
-	summary_html = f'''
+	summary_html = f"""
 <div class="summary-grid">
 	<div class="summary-box"><div class="num">{total}</div><div class="label">Total</div></div>
 	<div class="summary-box"><div class="num" style="color:var(--green)">{passed}</div><div class="label">Passed</div></div>
@@ -460,7 +463,7 @@ def _render_results_html(
 <h2>By Persona</h2>
 <div class="summary-grid">
 	{persona_boxes}
-</div>'''
+</div>"""
 
 	# Group results: passed, website_issue, test_limitation
 	sections = [
@@ -489,17 +492,34 @@ def _render_results_html(
 
 			# Build detail body
 			body_parts = []
-			body_parts.append(f'<div class="detail"><strong>Persona:</strong> <span class="badge badge-persona badge-{r.scenario.test_persona}">{_e(_PERSONA_LABELS.get(r.scenario.test_persona, r.scenario.test_persona))}</span></div>')
+			body_parts.append(
+				f'<div class="detail"><strong>Persona:</strong> <span class="badge badge-persona badge-{r.scenario.test_persona}">{_e(_PERSONA_LABELS.get(r.scenario.test_persona, r.scenario.test_persona))}</span></div>'
+			)
 			body_parts.append(f'<div class="detail"><strong>Target feature:</strong> {_e(r.scenario.target_feature)}</div>')
 			body_parts.append(f'<div class="detail"><strong>Description:</strong> {_e(r.scenario.description)}</div>')
 			body_parts.append(f'<div class="detail"><strong>Duration:</strong> {r.duration:.1f}s</div>')
 			body_parts.append(f'<div class="detail"><strong>Path:</strong> {_e(_format_path(r))}</div>')
 
+			# Evaluation dimensions
+			if r.process_evaluation:
+				body_parts.append(f'<div class="detail"><strong>Process evaluation:</strong> {_e(r.process_evaluation)}</div>')
+			if r.logical_evaluation:
+				body_parts.append(f'<div class="detail"><strong>Logical evaluation:</strong> {_e(r.logical_evaluation)}</div>')
+			if r.usability_evaluation:
+				body_parts.append(
+					f'<div class="detail"><strong>Usability evaluation:</strong> {_e(r.usability_evaluation)}</div>'
+				)
+
+			# Pages visited
+			if r.pages_visited:
+				pages_html = ', '.join(_e(p) for p in r.pages_visited[:10])
+				body_parts.append(f'<div class="detail"><strong>Pages visited:</strong> {pages_html}</div>')
+
 			if r.judgement:
 				reasoning = r.judgement.get('reasoning', '')
 				if reasoning:
 					body_parts.append(f'<div class="detail"><strong>Reasoning:</strong> {_e(reasoning)}</div>')
-				failure_reason = r.judgement.get('failure_reason', '')
+				failure_reason = r.reason or r.judgement.get('failure_reason', '')
 				if failure_reason:
 					body_parts.append(f'<div class="detail"><strong>Failure reason:</strong> {_e(failure_reason)}</div>')
 
@@ -511,11 +531,13 @@ def _render_results_html(
 			# Actions trace
 			if r.actions:
 				action_rows = ''.join(_format_action_html(a) for a in r.actions[:30])
-				body_parts.append(f'<div class="detail"><strong>Actions:</strong></div><div class="actions-list">{action_rows}</div>')
+				body_parts.append(
+					f'<div class="detail"><strong>Actions:</strong></div><div class="actions-list">{action_rows}</div>'
+				)
 
 			body_html = '\n'.join(body_parts)
 
-			cards_html += f'''<div class="card">
+			cards_html += f"""<div class="card">
 	<div class="card-header" onclick="toggle({card_idx})">
 		<span class="arrow" id="arrow-{card_idx}">&#9654;</span>
 		<span class="test-name">{_e(r.scenario.name)}</span>
@@ -525,10 +547,10 @@ def _render_results_html(
 	<div class="card-body" id="body-{card_idx}">
 		{body_html}
 	</div>
-</div>\n'''
+</div>\n"""
 			card_idx += 1
 
-	return f'''<!DOCTYPE html><html><head><meta charset="utf-8"><title>Murphy — Results</title>
+	return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Murphy — Results</title>
 <style>{_CSS}</style></head><body>
 <h1>Murphy — Results</h1>
 <div class="subtitle">{_e(analysis.site_name)} &middot; {_e(url)}</div>
@@ -547,4 +569,4 @@ function toggleExp(id) {{
 	if (s.style.display === 'none') {{ s.style.display = ''; f.style.display = 'none'; }}
 	else {{ s.style.display = 'none'; f.style.display = ''; }}
 }}
-</script></body></html>'''
+</script></body></html>"""

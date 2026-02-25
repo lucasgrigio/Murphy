@@ -5,6 +5,7 @@ import io
 import logging
 import os
 import platform
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from browser_use.agent.views import AgentHistoryList
@@ -127,7 +128,7 @@ def create_history_gif(
 	logo = None
 	if show_logo:
 		try:
-			logo = Image.open('./static/browser-use.png')
+			logo = Image.open(str(Path(__file__).parent.parent / 'static' / 'browser-use.png'))
 			# Resize logo to be small (e.g., 40px height)
 			logo_height = 150
 			aspect_ratio = logo.width / logo.height
