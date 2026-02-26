@@ -53,7 +53,7 @@ def register_refresh_dom_action(tools: 'Tools', session: 'BrowserSession') -> No
 	)
 	async def refresh_dom_state() -> ActionResult:
 		try:
-			cdp_session = await session.get_active_cdp_session()
+			cdp_session = await session.get_or_create_cdp_session()
 			result = await cdp_session.cdp_client.send.Runtime.evaluate(
 				params={
 					'expression': """

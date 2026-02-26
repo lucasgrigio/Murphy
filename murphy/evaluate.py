@@ -851,7 +851,7 @@ async def _create_session_pool(
 	# Extract cookies from original session for auth transfer
 	cookies: list[dict] = []
 	try:
-		cdp_session = await original_session.get_active_cdp_session()
+		cdp_session = await original_session.get_or_create_cdp_session()
 		result = await cdp_session.cdp_client.send.Network.getAllCookies(
 			session_id=cdp_session.session_id,
 		)
@@ -870,7 +870,7 @@ async def _create_session_pool(
 		# Inject auth cookies if available
 		if cookies:
 			try:
-				cdp_session = await session.get_active_cdp_session()
+				cdp_session = await session.get_or_create_cdp_session()
 				await cdp_session.cdp_client.send.Network.setCookies(
 					params={'cookies': cookies},
 					session_id=cdp_session.session_id,
