@@ -18,8 +18,8 @@ import asyncio
 import re
 import sys
 import traceback
-from pathlib import Path
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, Literal
 
 from dotenv import load_dotenv
@@ -244,6 +244,11 @@ def _build_exploration_prompt(task: str, url: str) -> str:
 		f'- Stay on the same domain as {url}.\n'
 		f'- STOP once the core flow is confirmed — do not re-check or explore further.\n'
 		f'- Note any alternative routes, form fields, buttons, dropdowns, and validation messages.\n'
+		f'- If UI appears empty, call refresh_dom_state first. Only if still empty, do at most one reload.\n'
+		f'- If a navigation attempt fails or yields a non-interactive/ambiguous page state, do NOT navigate to that same destination again until you call refresh_dom_state and re-check.\n'
+		f'- Never perform back-to-back navigate actions to the same destination without an intervening refresh_dom_state check.\n'
+		f'- Never perform repeated reload loops; prefer refresh_dom_state and wait checks.\n'
+		f'- Never reload the same URL repeatedly.\n'
 	)
 
 
@@ -544,7 +549,9 @@ def _log_plan_summary(plan: TestPlan) -> None:
 # ─── Enhanced execution prompt ────────────────────────────────────────────────
 
 
-def _build_execution_prompt(global_task: str, scenario: TestScenario, start_url: str) -> str:
+def _build_execution_prompt(
+	global_task: str, scenario: TestScenario, start_url: str, available_file_paths: list[str] | None = None
+) -> str:
 	"""Build execution prompt with validation rules."""
 	return (
 		f'Test: {scenario.name}\n\n'
@@ -566,6 +573,26 @@ def _build_execution_prompt(global_task: str, scenario: TestScenario, start_url:
 		f'- For delete flows: confirm entity is absent from list/search.\n'
 		f'- For edit flows: reopen and confirm updates persist.\n'
 		f'- If evidence is ambiguous, return success=false.\n'
+		f'- If the primary completion signal/action is blocked, disabled, or inconclusive, perform one alternate in-app verification route before deciding verdict.\n'
+		f'- Alternate verification must be within the app (e.g., list/detail/search/status views) and should check for objective outcome evidence.\n'
+		f'- During alternate verification, do not re-run the full primary workflow; verify existing outcome state only.\n'
+		f'- If evidence is ambiguous, contradictory, or missing, return success=false and explain what could not be verified.\n'
+		f'- Verify scenario success_criteria explicitly and cite which UI signal satisfied each required condition.\n\n'
+		f'DOM STATE RULES:\n'
+		f'- If UI appears empty, call refresh_dom_state before any reload. Do not repeatedly reload the same URL.\n'
+		f'- If navigation to a destination fails or page state is non-interactive/ambiguous afterward, call refresh_dom_state before any second navigation attempt.\n'
+		f'- Do not issue consecutive navigate actions to the same destination unless refresh_dom_state has been called in between.\n\n'
+		f'VALIDATION FALLBACK:\n'
+		f'- Validation-only fallback mode: once the primary outcome action has been attempted (e.g., create/delete/update submit), do NOT restart the full primary workflow.\n'
+		f'- In validation-only fallback mode, only perform evidence checks (list/detail/search/status/confirmation views) to verify whether outcome exists or not.\n'
+		f'- If fallback verification cannot confirm outcome, return success=false with explicit missing evidence; do not create/delete/update again as a workaround.\n'
+		+ (
+			f'\nFILE UPLOAD:\n'
+			f'- If the scenario requires file upload, use the provided available file paths with upload_file.\n'
+			f'- Available files: {", ".join(available_file_paths)}\n'
+			if available_file_paths
+			else ''
+		)
 	)
 
 
@@ -631,6 +658,32 @@ def _extract_pages_visited(actions: list[dict[str, Any]], start_url: str) -> lis
 	return unique
 
 
+_URL_RE = re.compile(r'https?://[^\s<>"\')\]]+')
+
+
+def _extract_urls_from_texts(texts: list[str]) -> list[str]:
+	"""Regex-based URL extraction from error messages / text blobs."""
+	urls: list[str] = []
+	for text in texts:
+		if text:
+			urls.extend(_URL_RE.findall(text))
+	return urls
+
+
+async def _collect_session_urls(browser_session: BrowserSession) -> list[str]:
+	"""Collect current + historical tab URLs from browser session."""
+	urls: list[str] = []
+	try:
+		tabs = await browser_session.get_tabs()
+		for tab in tabs:
+			tab_url = getattr(tab, 'url', '') or ''
+			if tab_url and tab_url not in ('about:blank', ''):
+				urls.append(tab_url)
+	except Exception:
+		pass
+	return urls
+
+
 # ─── Single-test execution helper ──────────────────────────────────────────────
 
 
@@ -658,8 +711,9 @@ async def _execute_single_test(
 		# Stabilize session between tests
 		await prepare_session_for_task(browser_session, url, force_navigate=False)
 
+		file_paths_str = [str(p) for p in fixture_paths] if fixture_paths else []
 		task_prompt = (
-			_build_execution_prompt(goal or '', scenario, url)
+			_build_execution_prompt(goal or '', scenario, url, available_file_paths=file_paths_str or None)
 			if goal
 			else (
 				f'Test: {scenario.name}\n\n'
@@ -671,7 +725,6 @@ async def _execute_single_test(
 			)
 		)
 
-		file_paths_str = [str(p) for p in fixture_paths] if fixture_paths else []
 		agent_kwargs: dict[str, Any] = {
 			'task': task_prompt,
 			'llm': llm,
@@ -708,22 +761,39 @@ async def _execute_single_test(
 		logical_eval = (verdict.logical_evaluation if verdict else '') or judgement.get('logical_evaluation', '')
 		usability_eval = (verdict.usability_evaluation if verdict else '') or judgement.get('usability_evaluation', '')
 		reason = (verdict.reason if verdict else '') or judgement.get('failure_reason', '')
+		validation_evidence = (verdict.validation_evidence if verdict else '') or ''
 
 		all_actions = history.model_actions()
+		errors = history.errors()
+
+		# Collect pages from actions, session tabs, and error text URLs
+		action_pages = _extract_pages_visited(all_actions, url)
+		session_urls = await _collect_session_urls(browser_session)
+		error_urls = _extract_urls_from_texts([e for e in errors if e])
+		all_pages = action_pages + session_urls + error_urls
+		# Deduplicate preserving order
+		seen_urls: set[str] = set()
+		unique_pages: list[str] = []
+		for p in all_pages:
+			if p not in seen_urls:
+				seen_urls.add(p)
+				unique_pages.append(p)
+
 		test_result = TestResult(
 			scenario=scenario,
 			success=success,
 			judgement=judgement,
 			actions=all_actions,
-			errors=history.errors(),
+			errors=errors,
 			duration=history.total_duration_seconds(),
-			pages_visited=_extract_pages_visited(all_actions, url),
+			pages_visited=unique_pages,
 			screenshot_paths=[p for p in history.screenshot_paths() if p],
 			form_fills=_extract_form_fills(all_actions),
 			process_evaluation=process_eval,
 			logical_evaluation=logical_eval,
 			usability_evaluation=usability_eval,
 			reason=reason,
+			validation_evidence=validation_evidence,
 		)
 		test_result.failure_category = classify_failure(test_result)
 	except Exception as exc:

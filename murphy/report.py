@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from murphy.models import EvaluationReport, ReportSummary, TestResult, WebsiteAnalysis
+from murphy.models import EvaluationReport, TestResult, WebsiteAnalysis
 
 
 def copy_screenshots_to_output(report: EvaluationReport, output_dir: Path) -> None:
@@ -206,6 +206,13 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 		if total > 3:
 			lines.append(f'- _{total - len(key_indices)} more screenshots available in output directory_')
 		lines.append('')
+
+	# ── Validation evidence ──
+	validation_evidence = getattr(r, 'validation_evidence', '') or ''
+	if validation_evidence:
+		lines += ['**Validation Performed:**', f'{validation_evidence}', '']
+	else:
+		lines += ['**Validation Performed:**', 'No explicit validation evidence recorded.', '']
 
 	# ── Evaluation dimensions ──
 	if r.process_evaluation:

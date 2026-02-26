@@ -131,6 +131,13 @@ class ScenarioExecutionVerdict(BaseModel):
 		default='',
 		description='Assessment of clarity, affordances, and user friendliness.',
 	)
+	validation_evidence: str = Field(
+		default='',
+		description=(
+			'Concrete verification evidence used for verdict: what was checked, '
+			'where it was checked, and what was observed.'
+		),
+	)
 
 
 # ─── Phase 3: Results ──────────────────────────────────────────────────────────
@@ -151,6 +158,7 @@ class TestResult(BaseModel):
 	logical_evaluation: str = ''
 	usability_evaluation: str = ''
 	reason: str = ''
+	validation_evidence: str = ''
 
 
 class ReportSummary(BaseModel):
