@@ -26,6 +26,9 @@ if TYPE_CHECKING:
 
 load_dotenv()
 
+# Persistent browser profile directory — stores cookies/session across runs so login is only needed once.
+BROWSER_PROFILE_DIR = Path(__file__).parent / 'browser_profile'
+
 
 def main() -> int:
 	parser = argparse.ArgumentParser(
@@ -94,8 +97,13 @@ async def _async_main(args: argparse.Namespace) -> None:
 
 	try:
 		# ── Auth detection / login wait ──
+		BROWSER_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
 		browser_session = BrowserSession(
-			browser_profile=BrowserProfile(keep_alive=True, dom_highlight_elements=not args.no_highlights)
+			browser_profile=BrowserProfile(
+				user_data_dir=BROWSER_PROFILE_DIR,
+				keep_alive=True,
+				dom_highlight_elements=not args.no_highlights,
+			)
 		)
 		await browser_session.start()
 
