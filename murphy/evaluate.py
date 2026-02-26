@@ -685,16 +685,40 @@ def _extract_urls_from_texts(texts: list[str]) -> list[str]:
 
 
 async def _collect_session_urls(browser_session: BrowserSession) -> list[str]:
-	"""Collect current + historical tab URLs from browser session."""
+	"""Collect live page URLs directly from the CDP session — authoritative, not inferred.
+
+	Uses two CDP-backed queries:
+	- get_current_page_url(): the URL the active tab is on right now
+	- get_pages(): all open tabs/pages in the session
+
+	These reflect what the browser actually navigated to, unlike regex extraction
+	from action history which can pick up URLs the agent mentioned but never visited.
+	"""
 	urls: list[str] = []
+	seen: set[str] = set()
+
+	def _add(url: str) -> None:
+		clean = (url or '').strip()
+		if clean and clean not in ('about:blank', '') and clean not in seen:
+			seen.add(clean)
+			urls.append(clean)
+
 	try:
-		tabs = await browser_session.get_tabs()
-		for tab in tabs:
-			tab_url = getattr(tab, 'url', '') or ''
-			if tab_url and tab_url not in ('about:blank', ''):
-				urls.append(tab_url)
+		current_url = await browser_session.get_current_page_url()
+		_add(current_url)
 	except Exception:
 		pass
+
+	try:
+		pages = await browser_session.get_pages()
+		for page in pages:
+			try:
+				_add(getattr(page, 'url', '') or '')
+			except Exception:
+				pass
+	except Exception:
+		pass
+
 	return urls
 
 
@@ -780,11 +804,11 @@ async def _execute_single_test(
 		all_actions = history.model_actions()
 		errors = history.errors()
 
-		# Collect pages from actions, session tabs, and error text URLs
-		action_pages = _extract_pages_visited(all_actions, url)
+		# CDP-queried URLs are authoritative; action/error regex URLs fill in the rest
 		session_urls = await _collect_session_urls(browser_session)
+		action_pages = _extract_pages_visited(all_actions, url)
 		error_urls = _extract_urls_from_texts([e for e in errors if e])
-		all_pages = action_pages + session_urls + error_urls
+		all_pages = session_urls + action_pages + error_urls
 		# Deduplicate preserving order
 		seen_urls: set[str] = set()
 		unique_pages: list[str] = []
@@ -941,6 +965,15 @@ async def execute_tests(url: str, test_plan: TestPlan, llm: ChatOpenAI, progress
 				print(f'  Result: {status} ({history.total_duration_seconds():.1f}s)')
 
 				all_actions = history.model_actions()
+				session_urls = await _collect_session_urls(browser_session)
+				action_pages = _extract_pages_visited(all_actions, url)
+				all_pages_raw = session_urls + action_pages
+				seen_p2: set[str] = set()
+				unique_pages2: list[str] = []
+				for p in all_pages_raw:
+					if p not in seen_p2:
+						seen_p2.add(p)
+						unique_pages2.append(p)
 				test_result = TestResult(
 					scenario=scenario,
 					success=success,
@@ -948,7 +981,7 @@ async def execute_tests(url: str, test_plan: TestPlan, llm: ChatOpenAI, progress
 					actions=all_actions,
 					errors=history.errors(),
 					duration=history.total_duration_seconds(),
-					pages_visited=_extract_pages_visited(all_actions, url),
+					pages_visited=unique_pages2,
 					screenshot_paths=[p for p in history.screenshot_paths() if p],
 					form_fills=_extract_form_fills(all_actions),
 					process_evaluation=judgement.get('process_evaluation', ''),

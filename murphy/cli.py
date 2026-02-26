@@ -418,6 +418,7 @@ async def _analyze_with_session(
 			f'- Check user profile/settings pages too — those often have important features\n'
 			f"- IMPORTANT: This is READ-ONLY exploration. Do NOT click 'Delete', 'Place Order', or any button that would permanently destroy data or cost money. You MAY click 'Create', 'Submit', 'Send', 'Save' to explore forms and creation flows — just don't confirm irreversible actions.\n"
 			f'- IMPORTANT: Stay on the same domain as {url}. Do NOT follow links to external sites (e.g. social media, third-party docs, partner sites). If a link goes to a different domain, note the feature but do not navigate there.\n'
+			f'- URL DISCIPLINE: Do NOT infer or guess deep-link URLs. Prefer clicking visible navigation controls to reach pages. For `page_url`, record only URLs you actually navigated to — never synthesize paths like "/spaces/agents/create" unless that exact URL appeared in the browser address bar.\n'
 			f'- For each page, classify the page_type (homepage, landing, product, listing, detail, form, content, dashboard, auth, error, other)\n\n'
 			f'FEATURE IDENTIFICATION:\n'
 			f"- You should find at least 8-15 features for any non-trivial app. If you have fewer than 8, you haven't explored enough — go back and click more nav items.\n"
