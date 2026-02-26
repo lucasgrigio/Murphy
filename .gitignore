@@ -84,3 +84,10 @@ product_extraction.py
 plot.py
 
 output/
+*/output/
+output/*
+*/output/*
+
+.yaml
+
+browser_profile/
