@@ -90,4 +90,5 @@ output/*
 
 .yaml
 
+murphy/output/test_plan.yaml
 browser_profile/
