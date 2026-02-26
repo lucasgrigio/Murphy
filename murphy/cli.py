@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -48,6 +47,10 @@ def main() -> int:
 		'--no-highlights', action='store_true', help='Disable bounding boxes on interactive elements in the browser'
 	)
 	parser.add_argument('--max-steps', type=int, default=30, help='Max agent steps per exploration/execution phase (default: 30)')
+	parser.add_argument(
+		'--parallel', type=int, default=1, metavar='N',
+		help='Number of tests to run concurrently (default: 1, sequential)',
+	)
 	args = parser.parse_args()
 
 	try:
@@ -183,7 +186,22 @@ async def _async_main(args: argparse.Namespace) -> None:
 			_, test_plan = load_test_plan(plan_path)
 			print(f'  Using {len(test_plan.scenarios)} test scenarios.\n')
 
+		# Ensure analysis exists for report writing (--goal and --plan paths skip feature discovery)
+		if analysis is None:
+			analysis = WebsiteAnalysis(
+				site_name=args.url,
+				category='unknown',
+				description=args.goal or 'Loaded from plan file',
+				key_pages=[],
+				features=[],
+				identified_user_flows=[],
+			)
+
 		# ── Phase 3: Execute ──
+		def _on_test_complete(results: list['TestResult']) -> None:
+			if analysis:
+				_write_reports_and_print(args.url, analysis, results, output_dir)
+
 		if not args.ui:
 			results = await execute_tests_with_session(
 				args.url,
@@ -193,6 +211,8 @@ async def _async_main(args: argparse.Namespace) -> None:
 				goal=args.goal,
 				fixture_paths=fixture_paths,
 				max_steps=args.max_steps,
+				save_callback=_on_test_complete,
+				max_concurrent=args.parallel,
 			)
 			if analysis:
 				_write_reports_and_print(args.url, analysis, results, output_dir)
@@ -215,19 +235,12 @@ async def _async_main(args: argparse.Namespace) -> None:
 				goal=args.goal,
 				fixture_paths=fixture_paths,
 				max_steps=args.max_steps,
+				save_callback=_on_test_complete,
 			)
 
 		state = ServerState(
 			url=args.url,
-			analysis=analysis
-			or WebsiteAnalysis(
-				site_name=args.url,
-				category='unknown',
-				description='Loaded from plan file',
-				key_pages=[],
-				features=[],
-				identified_user_flows=[],
-			),
+			analysis=analysis,
 			test_plan=test_plan,
 			execute_fn=_execute_fn,
 		)
@@ -654,20 +667,10 @@ def _write_reports_and_print(
 	output_dir: Path,
 ) -> None:
 	from murphy.evaluate import build_summary
-	from murphy.models import EvaluationReport
-	from murphy.report import write_json_report, write_markdown_report
+	from murphy.report import write_full_report
 
+	json_path, md_path = write_full_report(url, analysis, results, output_dir)
 	summary = build_summary(results)
-	report = EvaluationReport(
-		url=url,
-		timestamp=datetime.now(timezone.utc).isoformat(),
-		analysis=analysis,
-		results=results,
-		summary=summary,
-	)
-
-	json_path = write_json_report(report, output_dir)
-	md_path = write_markdown_report(report, output_dir)
 
 	print(f'\n{"=" * 60}')
 	print('Evaluation Complete')

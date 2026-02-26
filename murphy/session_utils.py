@@ -88,7 +88,17 @@ async def prepare_session_for_task(
 	"""Stabilize session without unnecessary reloads.
 
 	Preserves the current logged-in page if it is already interactive.
+	If the CDP WebSocket is dead, kills and restarts the session first.
 	"""
+	# CDP recovery: if the websocket died, restart the session
+	if not session.is_cdp_connected:
+		try:
+			await session.kill()
+		except Exception:
+			pass
+		await session.start()
+		force_navigate = True
+
 	await enforce_single_tab(session, url)
 
 	if not force_navigate:

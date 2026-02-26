@@ -426,9 +426,8 @@ class DefaultActionWatchdog(BaseWatchdog):
 				self.logger.info(f'{msg}')
 				return {'validation_error': msg}
 
-			# Safety check: disabled element
-			attrs = element_node.attributes or {}
-			if 'disabled' in attrs or attrs.get('aria-disabled', '').lower() == 'true':
+			# Safety check: disabled element (live CDP query to avoid stale multi-act cache)
+			if await self._is_element_disabled_live(element_node):
 				msg = f'Cannot click at ({event.coordinate_x}, {event.coordinate_y}) - element is disabled. Check if required fields need to be filled first.'
 				self.logger.info(f'{msg}')
 				return {'validation_error': msg}
@@ -661,6 +660,39 @@ class DefaultActionWatchdog(BaseWatchdog):
 			self.logger.debug(f'Occlusion check failed: {e}, assuming not occluded')
 			return False
 
+	async def _is_element_disabled_live(self, element_node: EnhancedDOMTreeNode) -> bool:
+		"""Check if an element is disabled via a live CDP query instead of cached attributes.
+
+		This avoids stale disabled-attribute checks during multi-act sequences where
+		a prior action (e.g. input) may have enabled the element since the DOM snapshot.
+
+		Falls back to cached attributes if the CDP call fails (node detached, etc.).
+		"""
+		try:
+			cdp_session = await self.browser_session.cdp_client_for_node(element_node)
+			session_id = cdp_session.session_id
+
+			result = await cdp_session.cdp_client.send.DOM.resolveNode(
+				params={'backendNodeId': element_node.backend_node_id}, session_id=session_id
+			)
+			object_id = result['object'].get('objectId')
+			if not object_id:
+				raise Exception('No objectId returned from resolveNode')
+
+			eval_result = await cdp_session.cdp_client.send.Runtime.callFunctionOn(
+				params={
+					'functionDeclaration': 'function() { return this.disabled === true || this.getAttribute("aria-disabled") === "true"; }',
+					'objectId': object_id,
+					'returnByValue': True,
+				},
+				session_id=session_id,
+			)
+			return bool(eval_result.get('result', {}).get('value', False))
+		except Exception as e:
+			self.logger.debug(f'Live disabled check failed ({e}), falling back to cached attributes')
+			attrs = element_node.attributes or {}
+			return 'disabled' in attrs or attrs.get('aria-disabled', '').lower() == 'true'
+
 	async def _click_element_node_impl(self, element_node) -> dict | None:
 		"""
 		Click an element using pure CDP with multiple fallback methods for getting element geometry.
@@ -684,9 +716,8 @@ class DefaultActionWatchdog(BaseWatchdog):
 				# Return error dict instead of raising to avoid ERROR logs
 				return {'validation_error': msg}
 
-			# Safety check: disabled element
-			attrs = element_node.attributes or {}
-			if 'disabled' in attrs or attrs.get('aria-disabled', '').lower() == 'true':
+			# Safety check: disabled element (live CDP query to avoid stale multi-act cache)
+			if await self._is_element_disabled_live(element_node):
 				msg = f'Cannot click on disabled element (index={element_node.backend_node_id}). The element has a disabled attribute — check if required fields need to be filled first or if a prerequisite step is missing.'
 				return {'validation_error': msg}
 

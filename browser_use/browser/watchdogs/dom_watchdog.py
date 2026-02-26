@@ -45,6 +45,9 @@ class DOMWatchdog(BaseWatchdog):
 	# Network tracking - maps request_id to (url, start_time, method, resource_type)
 	_pending_requests: dict[str, tuple[str, float, str, str | None]] = {}
 
+	# Toast observer state
+	_toast_observer_injected: bool = False
+
 	async def on_TabCreatedEvent(self, event: TabCreatedEvent) -> None:
 		# self.logger.debug('Setting up init scripts in browser')
 		return None
@@ -87,6 +90,112 @@ class DOMWatchdog(BaseWatchdog):
 			self.logger.debug(f'Failed to get recent events: {e}')
 
 		return json.dumps([])  # Return empty JSON array on error
+
+	_TOAST_OBSERVER_SCRIPT = """
+(function() {
+	if (window.__browseruse_toast_observer) return;
+	window.__browseruse_toast_messages = window.__browseruse_toast_messages || [];
+
+	function isToastElement(el) {
+		if (!el || !el.getAttribute) return false;
+		var role = el.getAttribute('role');
+		if (role === 'alert' || role === 'status') return true;
+		var ariaLive = el.getAttribute('aria-live');
+		if (ariaLive === 'polite' || ariaLive === 'assertive') return true;
+		var cls = (el.className || '').toString().toLowerCase();
+		if (cls.match(/toast|snackbar|notification/)) return true;
+		return false;
+	}
+
+	function captureText(el) {
+		var text = (el.textContent || '').trim();
+		if (text && text.length > 0 && text.length < 500) {
+			window.__browseruse_toast_messages.push(text);
+		}
+	}
+
+	window.__browseruse_toast_observer = new MutationObserver(function(mutations) {
+		for (var i = 0; i < mutations.length; i++) {
+			var added = mutations[i].addedNodes;
+			for (var j = 0; j < added.length; j++) {
+				var node = added[j];
+				if (node.nodeType !== 1) continue;
+				if (isToastElement(node)) {
+					captureText(node);
+				}
+				if (node.querySelectorAll) {
+					var children = node.querySelectorAll('[role="alert"],[role="status"],[aria-live="polite"],[aria-live="assertive"]');
+					for (var k = 0; k < children.length; k++) {
+						captureText(children[k]);
+					}
+				}
+			}
+			if (mutations[i].type === 'attributes' && mutations[i].target.nodeType === 1) {
+				if (isToastElement(mutations[i].target)) {
+					captureText(mutations[i].target);
+				}
+			}
+		}
+	});
+
+	window.__browseruse_toast_observer.observe(document.body || document.documentElement, {
+		childList: true,
+		subtree: true,
+		attributes: true,
+		attributeFilter: ['role', 'aria-live', 'class']
+	});
+})();
+"""
+
+	async def _inject_toast_observer(self) -> None:
+		"""Inject a MutationObserver that captures toast-like elements as they appear.
+
+		Watches for elements with role="alert", role="status", aria-live="polite|assertive",
+		or CSS classes containing toast/snackbar/notification. Stores captured text in
+		window.__browseruse_toast_messages for later harvesting.
+
+		The JS is idempotent — safe to call on every state request. The init script
+		is registered once for future navigations; Runtime.evaluate ensures the current
+		page always has the observer active.
+		"""
+		try:
+			# Register init script once so future navigations get the observer automatically
+			if not self._toast_observer_injected:
+				await self.browser_session._cdp_add_init_script(self._TOAST_OBSERVER_SCRIPT)
+				self._toast_observer_injected = True
+
+			# Always evaluate on the current page (idempotent — JS checks window.__browseruse_toast_observer)
+			cdp_session = await self.browser_session.get_or_create_cdp_session(focus=True)
+			await cdp_session.cdp_client.send.Runtime.evaluate(
+				params={'expression': self._TOAST_OBSERVER_SCRIPT, 'returnByValue': True},
+				session_id=cdp_session.session_id,
+			)
+		except Exception as e:
+			self.logger.debug(f'🍞 Failed to inject toast observer: {e}')
+
+	async def _harvest_toast_messages(self) -> list[str]:
+		"""Read and clear captured toast messages from the page.
+
+		Returns:
+			List of toast message strings captured since last harvest.
+		"""
+		try:
+			cdp_session = await self.browser_session.get_or_create_cdp_session(focus=True)
+			result = await cdp_session.cdp_client.send.Runtime.evaluate(
+				params={
+					'expression': '(function() { var msgs = window.__browseruse_toast_messages || []; window.__browseruse_toast_messages = []; return msgs; })()',
+					'returnByValue': True,
+				},
+				session_id=cdp_session.session_id,
+			)
+			if result.get('result', {}).get('type') == 'object':
+				messages = result['result'].get('value', [])
+				if messages:
+					self.logger.debug(f'🍞 Harvested {len(messages)} toast message(s)')
+				return messages
+		except Exception as e:
+			self.logger.debug(f'🍞 Failed to harvest toast messages: {e}')
+		return []
 
 	async def _get_pending_network_requests(self) -> list['NetworkRequest']:
 		"""Get list of currently pending network requests.
@@ -253,6 +362,10 @@ class DOMWatchdog(BaseWatchdog):
 		from browser_use.browser.views import BrowserStateSummary, PageInfo
 
 		self.logger.debug('🔍 DOMWatchdog.on_BrowserStateRequestEvent: STARTING browser state request')
+
+		# Ensure toast observer is injected (idempotent)
+		await self._inject_toast_observer()
+
 		page_url = await self.browser_session.get_current_page_url()
 		self.logger.debug(f'🔍 DOMWatchdog.on_BrowserStateRequestEvent: Got page URL: {page_url}')
 
@@ -460,6 +573,13 @@ class DOMWatchdog(BaseWatchdog):
 			if content and content.selector_map:
 				pagination_buttons_data = self._detect_pagination_buttons(content.selector_map)
 
+			# Harvest any toast messages captured by the MutationObserver
+			toast_messages: list[str] = []
+			try:
+				toast_messages = await self._harvest_toast_messages()
+			except Exception as e:
+				self.logger.debug(f'Failed to harvest toast messages: {e}')
+
 			# Build and cache the browser state summary
 			if screenshot_b64:
 				self.logger.debug(
@@ -485,6 +605,7 @@ class DOMWatchdog(BaseWatchdog):
 				pending_network_requests=pending_requests,
 				pagination_buttons=pagination_buttons_data,
 				closed_popup_messages=self.browser_session._closed_popup_messages.copy(),
+				toast_messages=toast_messages,
 			)
 
 			# Cache the state

@@ -145,6 +145,8 @@ class TestResult(BaseModel):
 	duration: float
 	failure_category: Literal['website_issue', 'test_limitation'] | None = None
 	pages_visited: list[str] = Field(default_factory=list)
+	screenshot_paths: list[str | None] = Field(default_factory=list)
+	form_fills: list[dict] = Field(default_factory=list)
 	process_evaluation: str = ''
 	logical_evaluation: str = ''
 	usability_evaluation: str = ''

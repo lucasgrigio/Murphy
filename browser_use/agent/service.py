@@ -1110,6 +1110,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		self._inject_exploration_nudge()
 		self._update_loop_detector_page_state(browser_state_summary)
 		self._inject_loop_detection_nudge()
+		self._force_done_on_severe_loop()
 		await self._force_done_after_last_step(step_info)
 		await self._force_done_after_failure()
 		return browser_state_summary
@@ -1419,6 +1420,28 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 				f'stagnation={self.state.loop_detector.consecutive_stagnant_pages})'
 			)
 			self._message_manager._add_context_message(UserMessage(content=nudge))
+
+	def _force_done_on_severe_loop(self) -> None:
+		"""Force the agent to call done when loops are severe enough that nudges aren't working."""
+		if not self.settings.loop_detection_enabled:
+			return
+		ld = self.state.loop_detector
+		if ld.max_repetition_count >= 15 or ld.consecutive_stagnant_pages >= 8:
+			msg = (
+				f'LOOP TERMINATION: You have been stuck in a loop '
+				f'(repetition={ld.max_repetition_count}, stagnation={ld.consecutive_stagnant_pages}). '
+				'Your only tool available is the "done" tool. No other tool is available. '
+				'All other tools which you see in history or examples are not available.\n'
+				'If the task is not yet fully finished as requested by the user, set success in "done" to false! '
+				'E.g. if not all steps are fully completed. Else success to true.\n'
+				'Include everything you found out for the ultimate task in the done text.'
+			)
+			self.logger.info(
+				f'🛑 Force done on severe loop (repetition={ld.max_repetition_count}, '
+				f'stagnation={ld.consecutive_stagnant_pages})'
+			)
+			self._message_manager._add_context_message(UserMessage(content=msg))
+			self.AgentOutput = self.DoneAgentOutput
 
 	def _update_loop_detector_actions(self) -> None:
 		"""Record the actions from the latest step into the loop detector."""

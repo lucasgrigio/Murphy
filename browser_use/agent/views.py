@@ -213,10 +213,10 @@ class ActionLoopDetector(BaseModel):
 		# Action repetition nudges (escalating at 5, 8, 12)
 		if self.max_repetition_count >= 12:
 			messages.append(
-				f'Heads up: you have repeated a similar action {self.max_repetition_count} times '
+				f'CRITICAL: You have repeated a similar action {self.max_repetition_count} times '
 				f'in the last {len(self.recent_action_hashes)} actions. '
-				'If you are making progress with each repetition, keep going. '
-				'If not, a different approach might get you there faster.'
+				'You MUST try a fundamentally different action NOW or call done. '
+				'Continuing the same approach will result in forced termination.'
 			)
 		elif self.max_repetition_count >= 8:
 			messages.append(

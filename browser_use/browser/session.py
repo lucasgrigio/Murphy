@@ -1071,6 +1071,17 @@ class BrowserSession(BaseModel):
 
 	# region - ========== CDP-based replacements for browser_context operations ==========
 	@property
+	def is_cdp_connected(self) -> bool:
+		"""Check if the CDP WebSocket connection is alive (zero-I/O state check)."""
+		import websockets
+
+		if self._cdp_client_root is None:
+			return False
+		if self._cdp_client_root.ws is None:
+			return False
+		return self._cdp_client_root.ws.state == websockets.protocol.State.OPEN
+
+	@property
 	def cdp_client(self) -> CDPClient:
 		"""Get the cached root CDP cdp_session.cdp_client. The client is created and started in self.connect()."""
 		assert self._cdp_client_root is not None, 'CDP client not initialized - browser may not be connected yet'

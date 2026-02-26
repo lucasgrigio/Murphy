@@ -108,7 +108,7 @@ class ClickableElementDetector:
 				try:
 					# aria disabled
 					if prop.name == 'disabled' and prop.value:
-						return False
+						pass  # Visible but click-blocked by watchdog
 
 					# aria hidden
 					if prop.name == 'hidden' and prop.value:
@@ -225,12 +225,18 @@ class ClickableElementDetector:
 			if node.ax_node.role in interactive_ax_roles:
 				return True
 
+		# ICON-LIKE ELEMENTS WITH ARIA-LABEL: SVG, <i>, <img> with aria-label are definitively interactive
+		if node.attributes and 'aria-label' in node.attributes:
+			icon_tags = {'svg', 'i', 'img'}
+			if node.tag_name and node.tag_name.lower() in icon_tags:
+				return True
+
 		# ICON AND SMALL ELEMENT CHECK: Elements that might be icons
 		if (
 			node.snapshot_node
 			and node.snapshot_node.bounds
-			and 10 <= node.snapshot_node.bounds.width <= 50  # Icon-sized elements
-			and 10 <= node.snapshot_node.bounds.height <= 50
+			and 8 <= node.snapshot_node.bounds.width <= 64  # Icon-sized elements
+			and 8 <= node.snapshot_node.bounds.height <= 64
 		):
 			# Check if this small element has interactive properties
 			if node.attributes:

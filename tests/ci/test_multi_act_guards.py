@@ -1,11 +1,12 @@
 """
-Tests for multi_act() page-change guards.
+Tests for multi_act() page-change guards and stale-cache safety.
 
 Verifies:
 1. Metadata: terminates_sequence flags are set correctly on built-in actions
 2. Static guard: actions tagged terminates_sequence abort remaining queued actions
 3. Runtime guard: URL/focus changes detected after click-on-link abort remaining actions
 4. Safe chain: multiple inputs execute without interruption
+5. Stale disabled check: input that enables a button → multi-act click succeeds
 
 Usage:
 	uv run pytest tests/ci/test_multi_act_guards.py -v -s
@@ -56,6 +57,20 @@ def http_server():
 		"""<html><head><title>Page B</title></head><body>
 		<h1>Page B</h1>
 		<p>You arrived at Page B</p>
+		</body></html>""",
+		content_type='text/html',
+	)
+
+	server.expect_request('/enable_on_input').respond_with_data(
+		"""<html><head><title>Enable On Input</title></head><body>
+		<h1>Enable On Input</h1>
+		<textarea id="description" placeholder="Type something..."></textarea>
+		<button id="next_btn" disabled>Next</button>
+		<script>
+			document.getElementById('description').addEventListener('input', function() {
+				document.getElementById('next_btn').disabled = false;
+			});
+		</script>
 		</body></html>""",
 		content_type='text/html',
 	)
@@ -281,3 +296,60 @@ class TestSafeChain:
 		# None should have errors
 		for r in results:
 			assert r.error is None, f'Unexpected error: {r.error}'
+
+
+# ---------------------------------------------------------------------------
+# 5. Stale disabled check — input enables button, multi-act click succeeds
+# ---------------------------------------------------------------------------
+
+
+class TestStaleDisabledCheck:
+	"""Verify that the live CDP disabled check avoids stale multi-act cache issues."""
+
+	async def test_input_enables_button_then_click_succeeds(self, browser_session, base_url, tools):
+		"""Input into textarea enables a disabled button — subsequent click should succeed."""
+		await tools.navigate(url=f'{base_url}/enable_on_input', new_tab=False, browser_session=browser_session)
+		await asyncio.sleep(0.5)
+
+		# Get the selector map to find element indices
+		state = await browser_session.get_browser_state_summary()
+		assert state.dom_state is not None
+		selector_map = state.dom_state.selector_map
+
+		# Find textarea and button indices
+		textarea_index = None
+		button_index = None
+		for idx, element in selector_map.items():
+			tag = getattr(element, 'tag_name', '')
+			if tag == 'textarea':
+				textarea_index = idx
+			elif tag == 'button':
+				button_index = idx
+
+		assert textarea_index is not None, 'Could not find textarea in selector map'
+		assert button_index is not None, 'Could not find button in selector map'
+
+		# Verify button starts disabled in the cached DOM
+		button_element = selector_map[button_index]
+		attrs = button_element.attributes or {}
+		assert 'disabled' in attrs, 'Button should start as disabled in the DOM snapshot'
+
+		# Multi-act: input text (enables button via JS) then click button
+		ActionModel = tools.registry.create_action_model()
+		actions = [
+			ActionModel.model_validate({'input': {'index': textarea_index, 'text': 'hello world'}}),
+			ActionModel.model_validate({'click': {'index': button_index}}),
+		]
+
+		mock_llm = create_mock_llm()
+		agent = Agent(task='test', llm=mock_llm, browser_session=browser_session, tools=tools)
+
+		results = await agent.multi_act(actions)
+
+		# Both actions should execute
+		assert len(results) == 2, f'Expected 2 results but got {len(results)}: {results}'
+		# Neither should have a "disabled element" error
+		for r in results:
+			assert r.error is None or 'disabled' not in r.error.lower(), (
+				f'Got unexpected disabled error: {r.error}'
+			)

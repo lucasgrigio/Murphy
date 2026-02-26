@@ -312,11 +312,19 @@ class AgentMessagePrompt:
 				closed_popups_text += f'  - {popup_msg}\n'
 			closed_popups_text += '\n'
 
+		# Add toast/notification messages if any
+		toast_text = ''
+		if self.browser_state.toast_messages:
+			toast_text = 'Toast/notification messages detected:\n'
+			for msg in self.browser_state.toast_messages:
+				toast_text += f'  - {msg}\n'
+			toast_text += '\n'
+
 		browser_state = f"""{stats_text}{current_tab_text}
 Available tabs:
 {tabs_text}
 {page_info_text}
-{recent_events_text}{closed_popups_text}{pdf_message}Interactive elements{truncated_text}:
+{recent_events_text}{closed_popups_text}{toast_text}{pdf_message}Interactive elements{truncated_text}:
 {elements_text}
 """
 		return browser_state

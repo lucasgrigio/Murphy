@@ -183,19 +183,9 @@ def test_detector_nudge_escalates_at_12_repeats():
 		detector.record_action('search', {'query': 'site:hinative.com answers votes'})
 	msg = detector.get_nudge_message()
 	assert msg is not None
-	assert 'making progress with each repetition' in msg
+	assert 'CRITICAL' in msg
 	assert '12 times' in msg
-
-
-def test_detector_critical_message_no_done_directive():
-	"""Critical nudge should NOT tell the agent to call done — just a gentle heads up."""
-	detector = ActionLoopDetector(window_size=20)
-	for _ in range(12):
-		detector.record_action('search', {'query': 'site:hinative.com answers votes'})
-	msg = detector.get_nudge_message()
-	assert msg is not None
-	assert 'done action' not in msg
-	assert 'different approach' in msg
+	assert 'fundamentally different action' in msg
 
 
 def test_detector_first_nudge_no_cannot_complete():

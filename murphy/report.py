@@ -2,16 +2,83 @@
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
-from murphy.models import EvaluationReport, TestResult
+from murphy.models import EvaluationReport, ReportSummary, TestResult, WebsiteAnalysis
+
+
+def copy_screenshots_to_output(report: EvaluationReport, output_dir: Path) -> None:
+	"""Copy test screenshots to a stable output directory, organized by test.
+
+	Idempotent: skips results whose screenshots already live inside the output dir
+	(happens when save_callback invokes this incrementally after each test).
+	"""
+	screenshots_dir = output_dir / 'screenshots'
+	screenshots_dir_resolved = screenshots_dir.resolve()
+	for i, result in enumerate(report.results, 1):
+		if not result.screenshot_paths:
+			continue
+		# Filter out None entries up front (screenshot_paths is list[str | None])
+		valid_paths = [p for p in result.screenshot_paths if p]
+		if not valid_paths:
+			continue
+		# Already copied on a previous incremental call — skip
+		if all(
+			str(Path(p).resolve()).startswith(str(screenshots_dir_resolved))
+			for p in valid_paths
+		):
+			continue
+		test_dir = screenshots_dir / f'test_{i:02d}_{_slugify(result.scenario.name)}'
+		test_dir.mkdir(parents=True, exist_ok=True)
+		for src_path_str in valid_paths:
+			src = Path(src_path_str).resolve()
+			dst = (test_dir / Path(src_path_str).name).resolve()
+			if src.exists() and src != dst:
+				shutil.copy2(src, dst)
+		# Update paths to point to copied location
+		result.screenshot_paths = [
+			str(test_dir / Path(p).name)
+			for p in valid_paths
+			if Path(p).exists()
+		]
+
+
+def _slugify(name: str) -> str:
+	"""Convert a test name to a filesystem-safe slug."""
+	return name.lower().replace(' ', '_').replace("'", '')[:50]
 
 
 def write_json_report(report: EvaluationReport, output_dir: Path) -> Path:
 	path = output_dir / 'evaluation_report.json'
 	path.write_text(report.model_dump_json(indent=2))
 	return path
+
+
+def write_full_report(
+	url: str,
+	analysis: WebsiteAnalysis,
+	results: list[TestResult],
+	output_dir: Path,
+) -> tuple[Path, Path]:
+	"""Copy screenshots + write JSON + write Markdown. Returns (json_path, md_path)."""
+	from murphy.evaluate import build_summary
+
+	summary = build_summary(results)
+	report = EvaluationReport(
+		url=url,
+		timestamp=datetime.now(timezone.utc).isoformat(),
+		analysis=analysis,
+		results=results,
+		summary=summary,
+	)
+
+	copy_screenshots_to_output(report, output_dir)
+	json_path = write_json_report(report, output_dir)
+	md_path = write_markdown_report(report, output_dir)
+	return json_path, md_path
 
 
 # ─── Action metrics ──────────────────────────────────────────────────────────
@@ -116,6 +183,29 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 	lines.append('**Path followed:**')
 	lines.append(f'{_format_path(r)}')
 	lines.append('')
+
+	# ── Form fills ──
+	if r.form_fills:
+		lines += ['**Form data entered:**']
+		for fill in r.form_fills:
+			field_label = fill.get('field_name') or fill.get('placeholder') or fill.get('tag') or f'element #{fill.get("index", "?")}'
+			text = fill.get('text', '')
+			preview = text[:80] + '...' if len(text) > 80 else text
+			lines.append(f'- **{field_label}**: `{preview}`')
+		lines.append('')
+
+	# ── Screenshots ──
+	if r.screenshot_paths:
+		lines += ['**Screenshots:**']
+		# Show first, last, and any mid-point screenshots
+		total = len(r.screenshot_paths)
+		key_indices = {0, total // 2, total - 1} if total > 3 else set(range(total))
+		for idx in sorted(key_indices):
+			path = r.screenshot_paths[idx]
+			lines.append(f'- Step {idx + 1}/{total}: `{path}`')
+		if total > 3:
+			lines.append(f'- _{total - len(key_indices)} more screenshots available in output directory_')
+		lines.append('')
 
 	# ── Evaluation dimensions ──
 	if r.process_evaluation:
