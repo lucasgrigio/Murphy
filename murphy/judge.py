@@ -58,6 +58,7 @@ CRITICAL: For non-happy-path personas, the test PASSES if the website handles th
 If verdict is FALSE, you MUST also classify the failure:
 - **website_issue**: The agent executed the test (or got far enough) and observed the website behaving badly — empty page, broken UI, unhandled input, crash, error, missing validation, data corruption.
 - **test_limitation**: The agent could NOT complete the test itself — couldn't find an element, ran out of steps, navigated to wrong page, test steps were ambiguous or impossible.
+- IMPORTANT: If errors in the trace are clearly infrastructure/tooling issues (e.g., AttributeError, BrowserSession errors, CDP errors, refresh_dom_state failures, Python tracebacks from the test harness), classify as **test_limitation**, NOT website_issue. These are problems with the test tooling, not the website under test.
 
 If verdict is TRUE, set failure_category to null.
 

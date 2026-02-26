@@ -198,7 +198,8 @@ IMPORTANT — Success criteria rules:
 
 CRITICAL — Adversarial and edge-case success criteria:
 - For adversarial tests: if the site accepts the input without crashing, erroring, or exposing sensitive data, that IS a pass. Do NOT require the site to show a specific error message for malicious input — silent sanitization is valid and correct behavior.
-- For edge_case tests: if the site handles unusual input without breaking (no crash, no unhandled exception, no corrupted display), that IS a pass — even if no explicit validation message appears.
+- For edge_case tests: accept ANY graceful handling — validation error messages, disabled submit buttons, input constraints, or silent rejection are ALL valid. If the site handles unusual input without breaking (no crash, no unhandled exception, no corrupted display), that IS a pass — even if no explicit validation message appears. A disabled submit button IS a validation mechanism.
+- For long input tests: if the site accepts the input without crashing, truncating silently, or corrupting data, that IS a pass. Successfully processing long input is valid behavior — do NOT require the site to reject or truncate it.
 - For angry_user tests: if the site absorbs hostile input (profanity, rage-clicks) without crashing or exposing errors, that IS a pass. Do NOT assume the site has profanity detection or specific error messages for hostile input.
 - Do NOT assume the site has features it hasn't demonstrated (e.g., profanity filters, injection-specific error messages, input length validators). Base success criteria only on observable behavior and what the analysis discovered.
 

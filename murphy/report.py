@@ -232,7 +232,7 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 		key_indices = {0, total // 2, total - 1} if total > 3 else set(range(total))
 		for idx in sorted(key_indices):
 			path = r.screenshot_paths[idx]
-			lines.append(f'![Step {idx + 1}/{total}]({path})')
+			lines.append(f'- Step {idx + 1}/{total}: {Path(path).name}')
 		if total > 3:
 			lines.append(f'- _{total - len(key_indices)} more screenshots available in output directory_')
 		lines.append('')
