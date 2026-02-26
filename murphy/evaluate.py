@@ -849,7 +849,7 @@ async def _create_session_pool(
 	sessions: list[BrowserSession] = [original_session]
 
 	# Extract cookies from original session for auth transfer
-	cookies: list[dict] = []
+	cookies: list[Any] = []
 	try:
 		cdp_session = await original_session.get_or_create_cdp_session()
 		result = await cdp_session.cdp_client.send.Network.getAllCookies(
