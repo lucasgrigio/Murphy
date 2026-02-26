@@ -26,6 +26,9 @@ if TYPE_CHECKING:
 
 load_dotenv()
 
+# Persistent browser profile directory — stores cookies/session across runs so login is only needed once.
+BROWSER_PROFILE_DIR = Path(__file__).parent / 'browser_profile'
+
 
 def main() -> int:
 	parser = argparse.ArgumentParser(
@@ -94,8 +97,13 @@ async def _async_main(args: argparse.Namespace) -> None:
 
 	try:
 		# ── Auth detection / login wait ──
+		BROWSER_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
 		browser_session = BrowserSession(
-			browser_profile=BrowserProfile(keep_alive=True, dom_highlight_elements=not args.no_highlights)
+			browser_profile=BrowserProfile(
+				user_data_dir=BROWSER_PROFILE_DIR,
+				keep_alive=True,
+				dom_highlight_elements=not args.no_highlights,
+			)
 		)
 		await browser_session.start()
 
@@ -299,7 +307,7 @@ async def _get_page_text(browser_session: 'BrowserSession') -> tuple[str, str, s
 	except Exception:
 		current_url = ''
 
-	cdp_session = await browser_session.get_active_cdp_session()
+	cdp_session = await browser_session.get_or_create_cdp_session()
 	try:
 		result = await cdp_session.cdp_client.send.Runtime.evaluate(
 			params={
@@ -323,7 +331,7 @@ async def _llm_classify_page(llm: 'ChatOpenAI', url: str, title: str, body: str,
 	Returns True if the page looks like authenticated/usable content.
 	Returns False if it looks like a login gate.
 	"""
-	from langchain_core.messages import HumanMessage
+	from browser_use.llm.messages import UserMessage
 
 	prompt = (
 		f'You are classifying a web page. Current URL: {url}\nPage title: {title}\n\nPage text (first 2000 chars):\n{body}\n\n'
@@ -344,8 +352,8 @@ async def _llm_classify_page(llm: 'ChatOpenAI', url: str, title: str, body: str,
 			'Reply with exactly one word: AUTHENTICATED or LOGIN'
 		)
 
-	response = await llm.ainvoke([HumanMessage(content=prompt)])
-	answer = response.content.strip().upper() if isinstance(response.content, str) else ''
+	response = await llm.ainvoke([UserMessage(content=prompt)])
+	answer = response.completion.strip().upper() if isinstance(response.completion, str) else ''
 
 	if mode == 'auth_detect':
 		return 'CONTENT' in answer

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 async def ui_readiness_score(session: 'BrowserSession') -> tuple[int, int]:
 	"""Return (interactive_count, text_length) from the current page."""
-	cdp_session = await session.get_active_cdp_session()
+	cdp_session = await session.get_or_create_cdp_session()
 	result = await cdp_session.cdp_client.send.Runtime.evaluate(
 		params={
 			'expression': """
@@ -50,7 +50,7 @@ async def wait_until_ui_ready(session: 'BrowserSession', url: str) -> bool:
 			pass
 		# Force a fresh CDP round-trip
 		try:
-			cdp_session = await session.get_active_cdp_session()
+			cdp_session = await session.get_or_create_cdp_session()
 			await cdp_session.cdp_client.send.Runtime.evaluate(
 				params={'expression': 'document.readyState', 'returnByValue': True},
 				session_id=cdp_session.session_id,
