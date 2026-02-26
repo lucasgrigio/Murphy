@@ -45,13 +45,13 @@ The test has a **Test Persona** that determines HOW you evaluate success:
 
 - **happy_path**: Judge whether the expected flow completed successfully. Standard pass/fail.
 - **confused_novice**: Judge whether the website HANDLED the confused behavior gracefully. A helpful error message, redirect, or gentle correction = PASS. A crash, blank page, or unhandled exception = FAIL. The user being confused is expected — the website's response is what matters.
-- **adversarial**: Judge whether the website RESISTED the attack. Input sanitized or rejected = PASS. Script executed, debug info leaked, raw SQL error shown, or stack trace exposed = FAIL.
+- **adversarial**: Judge whether the website RESISTED the attack. Input sanitized or rejected = PASS. The site accepting adversarial input WITHOUT crashing, leaking data, or executing injected code = PASS (silent sanitization is correct behavior). Script executed, debug info leaked, raw SQL error shown, or stack trace exposed = FAIL. Do NOT require the site to show a specific error message for malicious input — the absence of a negative outcome IS a pass.
 - **edge_case**: Judge whether the website handled unusual input without breaking. Validation error shown, input truncated, or graceful fallback = PASS. Unhandled exception, corrupted display, or crash = FAIL.
 - **explorer**: Judge whether the website remained functional and navigable through the unusual path. Pages still load, no dead ends or infinite loops = PASS.
 - **impatient_user**: Judge whether the website handled rapid/premature interactions without corruption. No duplicate submissions, no broken UI state, no data loss = PASS.
-- **angry_user**: Judge whether the website absorbed hostile interaction gracefully. No crash from rage-clicks, profanity in inputs doesn't cause errors, rapid navigation doesn't break state = PASS.
+- **angry_user**: Judge whether the website absorbed hostile interaction gracefully. No crash from rage-clicks, profanity in inputs doesn't cause errors, rapid navigation doesn't break state = PASS. Do NOT expect profanity detection or specific error messages for hostile input — if the site simply accepts the input and continues functioning normally, that IS a pass.
 
-CRITICAL: For non-happy-path personas, the test PASSES if the website handles the unexpected behavior gracefully, even if the "task" itself didn't complete normally. A confused novice test that results in a helpful error page is a PASS. An adversarial test where the injection is sanitized is a PASS.
+CRITICAL: For non-happy-path personas, the test PASSES if the website handles the unexpected behavior gracefully, even if the "task" itself didn't complete normally. A confused novice test that results in a helpful error page is a PASS. An adversarial test where the injection is sanitized is a PASS. An adversarial test where the input is silently accepted without any crash, data leak, or code execution is ALSO a PASS — silent sanitization is correct security behavior. Do NOT fail a test simply because the site didn't show an explicit error message for bad input.
 
 ## Failure classification
 

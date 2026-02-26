@@ -31,6 +31,7 @@ from browser_use.browser.session import BrowserSession
 from browser_use.llm import ChatOpenAI, SystemMessage, UserMessage
 from murphy.judge import murphy_judge
 from murphy.models import (
+	ExecutiveSummary,
 	ReportSummary,
 	ScenarioExecutionVerdict,
 	TestPlan,
@@ -194,6 +195,12 @@ IMPORTANT — Success criteria rules:
 - Never require the agent to "report", "verify", "confirm", "provide evidence of", or "demonstrate" anything.
 - For non-happy-path tests: a test PASSES if the website handles bad input gracefully (error message, redirect, sanitized display). A test FAILS if the website crashes, shows a blank page, displays an unhandled exception, or executes injected code.
 - The judge evaluates success by matching the action trace and browser URLs against these criteria.
+
+CRITICAL — Adversarial and edge-case success criteria:
+- For adversarial tests: if the site accepts the input without crashing, erroring, or exposing sensitive data, that IS a pass. Do NOT require the site to show a specific error message for malicious input — silent sanitization is valid and correct behavior.
+- For edge_case tests: if the site handles unusual input without breaking (no crash, no unhandled exception, no corrupted display), that IS a pass — even if no explicit validation message appears.
+- For angry_user tests: if the site absorbs hostile input (profanity, rage-clicks) without crashing or exposing errors, that IS a pass. Do NOT assume the site has profanity detection or specific error messages for hostile input.
+- Do NOT assume the site has features it hasn't demonstrated (e.g., profanity filters, injection-specific error messages, input length validators). Base success criteria only on observable behavior and what the analysis discovered.
 
 Make tests realistic — they should interact with the actual UI elements found in the analysis.
 Do NOT generate tests that require authentication/login unless a login page was found.
@@ -635,6 +642,13 @@ def _extract_form_fills(actions: list[dict[str, Any]]) -> list[dict]:
 					fill['field_name'] = el.get('ax_name', '')
 					fill['tag'] = el.get('tag_name', '')
 					fill['placeholder'] = el.get('placeholder', '')
+					# Additional attributes for better labeling
+					attrs = el.get('attributes', {})
+					if isinstance(attrs, dict):
+						fill['name_attr'] = attrs.get('name', '')
+						fill['aria_label'] = attrs.get('aria-label', '')
+						fill['type_attr'] = attrs.get('type', '')
+					fill['role'] = el.get('role', '')
 				fills.append(fill)
 	return fills
 
@@ -1126,6 +1140,60 @@ def build_summary(results: list[TestResult]) -> ReportSummary:
 	)
 
 
+async def generate_executive_summary(
+	url: str,
+	analysis: WebsiteAnalysis,
+	results: list[TestResult],
+	summary: ReportSummary,
+	llm: ChatOpenAI,
+) -> ExecutiveSummary:
+	"""Generate an LLM-powered executive summary of the evaluation results."""
+	results_summary_parts: list[str] = []
+	for i, r in enumerate(results, 1):
+		status = 'PASSED' if r.success else 'FAILED'
+		persona = r.scenario.test_persona.replace('_', ' ')
+		reason = ''
+		if not r.success:
+			reason = r.reason or (r.judgement or {}).get('failure_reason', '')
+			category = r.failure_category or 'unknown'
+			reason = f' | Category: {category} | Reason: {reason}'
+		results_summary_parts.append(
+			f'{i}. [{status}] {r.scenario.name} (persona: {persona}, priority: {r.scenario.priority}){reason}'
+		)
+
+	prompt = f"""Analyze these website evaluation results and produce an executive summary.
+
+Website: {url}
+Site: {analysis.site_name} ({analysis.category})
+Description: {analysis.description}
+
+Results: {summary.passed}/{summary.total} tests passed ({summary.pass_rate}%)
+- Website Issues: {summary.website_issues}
+- Test Limitations: {summary.test_limitations}
+
+Individual results:
+{chr(10).join(results_summary_parts)}
+
+Provide:
+1. overall_assessment: 1-2 sentences on the site's overall quality based on test results
+2. key_findings: 3-5 specific UX findings ranked by severity (most severe first). Each finding should reference specific test results.
+3. recommended_actions: Top 3 concrete actions the site team should take to improve UX
+
+Be specific and actionable. Reference actual test names and outcomes. Do NOT use generic statements."""
+
+	response = await llm.ainvoke(
+		messages=[
+			SystemMessage(content='You are a senior UX analyst writing an executive summary of automated website testing results. Be concise, specific, and actionable.'),
+			UserMessage(content=prompt),
+		],
+		output_format=ExecutiveSummary,
+	)
+
+	result = response.completion
+	assert isinstance(result, ExecutiveSummary), f'Expected ExecutiveSummary, got {type(result)}'
+	return result
+
+
 # ─── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -1180,7 +1248,13 @@ async def main():
 	if args.no_ui:
 		# Direct execution (original behavior)
 		results = await execute_tests(args.url, test_plan, llm, save_callback=_on_test_complete)
-		_write_reports_and_print(args.url, analysis, results, output_dir)
+		# Generate executive summary for the final report
+		try:
+			exec_summary = await generate_executive_summary(args.url, analysis, results, build_summary(results), llm)
+		except Exception as e:
+			print(f'  Warning: Could not generate executive summary: {e}')
+			exec_summary = None
+		_write_reports_and_print(args.url, analysis, results, output_dir, executive_summary=exec_summary)
 		return
 
 	# Interactive UI mode — start server for test plan review
@@ -1207,7 +1281,12 @@ async def main():
 			await asyncio.sleep(1)
 			# After execution is done, write reports (once)
 			if state.done and state.results and not getattr(state, '_reports_written', False):
-				_write_reports_and_print(args.url, analysis, state.results, output_dir)
+				try:
+					exec_summary = await generate_executive_summary(args.url, analysis, state.results, build_summary(state.results), llm)
+				except Exception as e:
+					print(f'  Warning: Could not generate executive summary: {e}')
+					exec_summary = None
+				_write_reports_and_print(args.url, analysis, state.results, output_dir, executive_summary=exec_summary)
 				state._reports_written = True  # type: ignore[attr-defined]
 	except KeyboardInterrupt:
 		pass
@@ -1220,8 +1299,9 @@ def _write_reports_and_print(
 	analysis: WebsiteAnalysis,
 	results: list[TestResult],
 	output_dir: Path,
+	executive_summary: ExecutiveSummary | None = None,
 ) -> None:
-	json_path, md_path = write_full_report(url, analysis, results, output_dir)
+	json_path, md_path = write_full_report(url, analysis, results, output_dir, executive_summary=executive_summary)
 	summary = build_summary(results)
 
 	print(f'\n{"=" * 60}')

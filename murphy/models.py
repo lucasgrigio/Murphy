@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -81,11 +81,17 @@ class Feature(BaseModel):
 
 class WebsiteAnalysis(BaseModel):
 	site_name: str
-	category: str
+	category: str = Field(min_length=1)
 	description: str
 	key_pages: list[PageInfo]
 	features: list[Feature]
 	identified_user_flows: list[str]
+
+	@model_validator(mode='after')
+	def _normalize_category(self) -> 'WebsiteAnalysis':
+		if not self.category or self.category.lower() in ('unknown', 'n/a', 'none', ''):
+			self.category = 'uncategorized'
+		return self
 
 
 # ─── Phase 2: Test Generation ──────────────────────────────────────────────────
@@ -93,13 +99,13 @@ class WebsiteAnalysis(BaseModel):
 
 class TestScenario(BaseModel):
 	name: str
-	description: str
+	description: str = Field(min_length=1)
 	priority: Literal['critical', 'high', 'medium', 'low']
 	feature_category: FeatureCategory
 	target_feature: str
 	test_persona: TestPersona
-	steps_description: str
-	success_criteria: str
+	steps_description: str = Field(min_length=1)
+	success_criteria: str = Field(min_length=1)
 
 
 class TestPlan(BaseModel):
@@ -171,9 +177,17 @@ class ReportSummary(BaseModel):
 	by_priority: dict[str, dict[str, int]]
 
 
+class ExecutiveSummary(BaseModel):
+	"""LLM-generated executive summary of evaluation findings."""
+	overall_assessment: str = Field(description='1-2 sentence overall site quality assessment.')
+	key_findings: list[str] = Field(description='3-5 key UX findings ranked by severity.')
+	recommended_actions: list[str] = Field(description='Top 3 recommended actions to improve the site.')
+
+
 class EvaluationReport(BaseModel):
 	url: str
 	timestamp: str
 	analysis: WebsiteAnalysis
 	results: list[TestResult]
 	summary: ReportSummary
+	executive_summary: ExecutiveSummary | None = None

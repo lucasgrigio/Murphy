@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from murphy.models import EvaluationReport, TestResult, WebsiteAnalysis
+from murphy.models import EvaluationReport, ExecutiveSummary, TestResult, WebsiteAnalysis
 
 
 def copy_screenshots_to_output(report: EvaluationReport, output_dir: Path) -> None:
@@ -62,6 +62,7 @@ def write_full_report(
 	analysis: WebsiteAnalysis,
 	results: list[TestResult],
 	output_dir: Path,
+	executive_summary: ExecutiveSummary | None = None,
 ) -> tuple[Path, Path]:
 	"""Copy screenshots + write JSON + write Markdown. Returns (json_path, md_path)."""
 	from murphy.evaluate import build_summary
@@ -73,6 +74,7 @@ def write_full_report(
 		analysis=analysis,
 		results=results,
 		summary=summary,
+		executive_summary=executive_summary,
 	)
 
 	copy_screenshots_to_output(report, output_dir)
@@ -171,6 +173,34 @@ def _format_metrics_line(m: ActionMetrics) -> str:
 	return ', '.join(parts) if parts else 'No actions recorded'
 
 
+def _form_field_label(fill: dict) -> str:
+	"""Build a human-readable label for a form field from available metadata."""
+	# Try accessible name first
+	if fill.get('field_name'):
+		return fill['field_name']
+	# aria-label
+	if fill.get('aria_label'):
+		return fill['aria_label']
+	# placeholder text
+	if fill.get('placeholder'):
+		return fill['placeholder']
+	# HTML name attribute
+	if fill.get('name_attr'):
+		return fill['name_attr']
+	# Construct from tag + type: e.g. "<input type="email">"
+	tag = fill.get('tag', '')
+	type_attr = fill.get('type_attr', '')
+	if tag:
+		if type_attr:
+			return f'<{tag} type="{type_attr}">'
+		return f'<{tag}>'
+	# Role-based fallback
+	if fill.get('role'):
+		return fill['role']
+	# Last resort
+	return f'element #{fill.get("index", "?")}'
+
+
 def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 	"""Append detailed info for a single test result (pass or fail)."""
 	m = _compute_metrics(r)
@@ -188,7 +218,7 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 	if r.form_fills:
 		lines += ['**Form data entered:**']
 		for fill in r.form_fills:
-			field_label = fill.get('field_name') or fill.get('placeholder') or fill.get('tag') or f'element #{fill.get("index", "?")}'
+			field_label = _form_field_label(fill)
 			text = fill.get('text', '')
 			preview = text[:80] + '...' if len(text) > 80 else text
 			lines.append(f'- **{field_label}**: `{preview}`')
@@ -202,7 +232,7 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 		key_indices = {0, total // 2, total - 1} if total > 3 else set(range(total))
 		for idx in sorted(key_indices):
 			path = r.screenshot_paths[idx]
-			lines.append(f'- Step {idx + 1}/{total}: `{path}`')
+			lines.append(f'![Step {idx + 1}/{total}]({path})')
 		if total > 3:
 			lines.append(f'- _{total - len(key_indices)} more screenshots available in output directory_')
 		lines.append('')
@@ -275,7 +305,7 @@ def write_markdown_report(report: EvaluationReport, output_dir: Path) -> Path:
 		f'| URL | {report.url} |',
 		f'| Category | {a.category} |',
 		f'| Date | {report.timestamp[:10]} |',
-		f'| Pages Discovered | {", ".join(p.title for p in a.key_pages)} |',
+		f'| Pages Discovered | {", ".join(p.title for p in a.key_pages) or "None identified"} |',
 		'',
 		'---',
 		'',
@@ -359,6 +389,28 @@ def write_markdown_report(report: EvaluationReport, output_dir: Path) -> Path:
 
 	lines += ['', '---', '']
 
+	# ── Executive Summary ─────────────────────────────────────────────────────
+	if report.executive_summary:
+		es = report.executive_summary
+		lines += [
+			'## Executive Summary',
+			'',
+			f'{es.overall_assessment}',
+			'',
+			'### Key Findings',
+			'',
+		]
+		for i, finding in enumerate(es.key_findings, 1):
+			lines.append(f'{i}. {finding}')
+		lines += [
+			'',
+			'### Recommended Actions',
+			'',
+		]
+		for i, action in enumerate(es.recommended_actions, 1):
+			lines.append(f'{i}. {action}')
+		lines += ['', '---', '']
+
 	# ── Website Issues section ────────────────────────────────────────────────
 	if website_issues:
 		lines += ['## Website Issues', '']
@@ -438,11 +490,13 @@ def write_markdown_report(report: EvaluationReport, output_dir: Path) -> Path:
 
 
 def _suggest_fix(result: TestResult) -> str:
-	"""Generate an actionable suggestion based on the failure context."""
+	"""Generate an actionable suggestion based on the failure context and persona."""
 	judgement = result.judgement or {}
 	failure_reason = judgement.get('failure_reason', '').lower()
+	failure_reason_raw = judgement.get('failure_reason', '')
 	reasoning = judgement.get('reasoning', '').lower()
 	scenario = result.scenario
+	persona = scenario.test_persona
 
 	# Captcha blocked
 	if judgement.get('reached_captcha'):
@@ -458,46 +512,78 @@ def _suggest_fix(result: TestResult) -> str:
 			'Review whether the feature being tested actually exists and is accessible.'
 		)
 
+	# Persona-specific suggestions for adversarial / edge_case / angry_user
+	if persona in ('adversarial', 'edge_case', 'angry_user'):
+		# Check if the site actually handled it fine but the test expected explicit feedback
+		silent_handling_signals = [
+			'no error', 'no explicit', 'no visible', 'no message', 'accepted',
+			'no validation', 'did not show', 'without showing', 'no indication',
+			'silently', 'no feedback',
+		]
+		if any(signal in failure_reason or signal in reasoning for signal in silent_handling_signals):
+			return (
+				f'The site accepted the {persona.replace("_", " ")} input without crashing or exposing errors, '
+				f'which may actually be correct behavior (silent sanitization). '
+				f'Consider whether the success criteria should treat silent handling as a pass. '
+				f'Specific observation: {failure_reason_raw}'
+			)
+		# Site actually broke
+		crash_signals = ['crash', 'exception', 'stack trace', 'debug', 'leaked', 'executed', 'injection']
+		if any(signal in failure_reason or signal in reasoning for signal in crash_signals):
+			return (
+				f'The site did not handle {persona.replace("_", " ")} input safely. '
+				f'Add input validation or sanitization for this input path. '
+				f'Specific issue: {failure_reason_raw}'
+			)
+
+	# Agent got stuck / looping (common with confused_novice, impatient_user)
+	if persona in ('confused_novice', 'impatient_user'):
+		if result.duration > 200 or (len(result.actions) > 25):
+			return (
+				f'The agent ran {len(result.actions)} actions over {result.duration:.0f}s, suggesting it got stuck '
+				f'in a loop. This is likely a test limitation — the "{persona.replace("_", " ")}" scenario '
+				f'may need clearer exit conditions or a lower step limit. '
+				f'Specific observation: {failure_reason_raw}'
+			)
+
 	# Verification / evidence issues
 	if 'verify' in failure_reason or 'evidence' in failure_reason or 'confirm' in failure_reason:
 		return (
-			'The actions were performed but the test could not confirm the expected outcome. '
-			'This often means the page loaded correctly but the success criteria were too strict '
-			"or the page content didn't explicitly match what was expected. "
-			'Try making the success criteria more specific (e.g., "page title contains X") '
-			'or check if the page content has changed.'
+			f'The actions were performed but the test could not confirm the expected outcome. '
+			f'The success criteria may be too strict for what the site actually shows. '
+			f'Specific observation: {failure_reason_raw}'
 		)
 
 	# Navigation failures
 	if 'navigate' in failure_reason or 'load' in failure_reason or 'url' in failure_reason:
 		return (
-			'A page failed to load or navigated to an unexpected URL. '
-			"Check that the target pages exist, aren't behind authentication, "
-			"and don't redirect unexpectedly."
+			f'A page failed to load or navigated to an unexpected URL. '
+			f"Check that the target pages exist, aren't behind authentication, "
+			f"and don't redirect unexpectedly. "
+			f'Specific observation: {failure_reason_raw}'
 		)
 
 	# Element not found
 	if 'element' in failure_reason or 'click' in failure_reason or 'not found' in failure_reason:
 		return (
-			'An interactive element could not be found or clicked. '
-			'The page layout may have changed, or the element may load dynamically. '
-			"Check if the element is visible without scrolling and isn't behind a popup or overlay."
+			f'An interactive element could not be found or clicked. '
+			f'The page layout may have changed, or the element may load dynamically. '
+			f'Specific observation: {failure_reason_raw}'
 		)
 
 	# Timeout
 	if 'timeout' in failure_reason or 'time' in reasoning:
 		return (
-			'The test took too long to complete. This could indicate slow page loads, '
-			'heavy JavaScript, or the agent getting stuck in a loop. '
-			'Check page performance and ensure key content loads within a few seconds.'
+			f'The test took too long to complete. This could indicate slow page loads, '
+			f'heavy JavaScript, or the agent getting stuck in a loop. '
+			f'Specific observation: {failure_reason_raw}'
 		)
 
-	# Generic fallback
-	if failure_reason:
+	# Fallback with actual failure reason included
+	if failure_reason_raw:
 		return (
-			'Review the failure reason above. If the website content has changed recently, '
-			'the test expectations may need updating. Re-running the evaluation can also help '
-			'rule out transient issues.'
+			f'The test failed during the "{persona.replace("_", " ")}" scenario. '
+			f'Specific observation: {failure_reason_raw}'
 		)
 
 	return ''
