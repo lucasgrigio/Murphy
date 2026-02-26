@@ -1,100 +1,123 @@
 # Murphy Test Plan — https://work.toqan.ai
-# Generated: 2026-02-26T13:27:47.821854+00:00
+# Generated: 2026-02-26T11:52:57.871805+00:00
 # Edit freely: add/remove/modify scenarios, then re-run with --plan flag.
 
 url: https://work.toqan.ai
-generated_at: '2026-02-26T13:27:47.821854+00:00'
+generated_at: '2026-02-26T11:52:57.871805+00:00'
 scenarios:
 - name: Happy Path Agent Creation
-  description: A standard user successfully creates an agent using the expected flow,
-    considering alternative routes but choosing the most straightforward one.
+  description: A standard user successfully creates a new agent using the expected
+    flow, considering alternative paths.
   priority: critical
   feature_category: forms
   target_feature: Agent Creation Form
   test_persona: happy_path
-  steps_description: 1. Navigate to https://work.toqan.ai and click on 'Create Agent'.
-    2. Fill in the 'Agent Name' field with a valid name and the 'Description' field
-    with a brief description. 3. Click the 'Submit' button to create the agent.
+  steps_description: '1. Navigate to https://work.toqan.ai/agents.
+
+    2. Click on the ''Create New Agent'' button.
+
+    3. Fill out the agent form with valid data and submit.
+
+    4. Considered alternatives: Using the ''Quick Create'' option if available.'
   success_criteria: A confirmation message appears stating 'Agent created successfully',
-    and the new agent is listed on the dashboard.
+    and the new agent is listed on the agents page.
 - name: Confused Novice Misclicks During Agent Creation
-  description: A novice user misclicks during the agent creation process, leading
-    to backtracking and corrections.
+  description: A novice user makes mistakes by misclicking and entering wrong inputs
+    while trying to create an agent.
   priority: medium
   feature_category: forms
   target_feature: Agent Creation Form
   test_persona: confused_novice
-  steps_description: 1. Navigate to https://work.toqan.ai and mistakenly click on
-    'Help' instead of 'Create Agent'. 2. Return to the main page and correctly click
-    on 'Create Agent'. 3. Enter an incorrect format in the 'Agent Name' field, receive
-    an error, correct it, and then submit.
-  success_criteria: The system provides clear error messages for incorrect inputs
-    and allows successful submission after corrections.
-- name: Adversarial Input Handling in Agent Creation Form
-  description: An adversarial user attempts to inject malicious scripts into the agent
-    creation form fields.
+  steps_description: '1. Navigate to https://work.toqan.ai/agents.
+
+    2. Click on ''Create New Agent'' but accidentally click outside the form, closing
+    it.
+
+    3. Reopen the form and enter incorrect data types in fields (e.g., text in a number
+    field).'
+  success_criteria: Error messages are displayed for incorrect inputs, and the form
+    remains open for corrections.
+- name: Adversarial User Attempts SQL Injection in Agent Name Field
+  description: An adversarial user attempts to exploit vulnerabilities by injecting
+    SQL code into the agent name field.
   priority: high
   feature_category: forms
-  target_feature: Agent Creation Form
+  target_feature: Agent Creation Form Security
   test_persona: adversarial
-  steps_description: 1. Navigate to https://work.toqan.ai and click on 'Create Agent'.
-    2. Enter '<script>alert("XSS")</script>' in the 'Agent Name' field and attempt
-    to submit.
-  success_criteria: The system sanitizes inputs, preventing script execution, and
-    displays an error message without creating an agent.
-- name: 'Edge Case: Empty Inputs in Agent Creation Form'
-  description: Testing how the system handles empty input fields during agent creation.
+  steps_description: '1. Navigate to https://work.toqan.ai/agents.
+
+    2. Click on ''Create New Agent''.
+
+    3. Enter "''; DROP TABLE agents;--" into the agent name field and submit.'
+  success_criteria: The input is sanitized, no SQL code is executed, and an error
+    message indicates invalid input.
+- name: 'Edge Case: Special Characters in Agent Name Field'
+  description: Testing how special characters are handled when entered into the agent
+    name field during creation.
   priority: medium
   feature_category: forms
-  target_feature: Agent Creation Form
+  target_feature: Agent Creation Form Validation
   test_persona: edge_case
-  steps_description: 1. Navigate to https://work.toqan.ai and click on 'Create Agent'.
-    2. Leave all fields empty and attempt to submit the form.
-  success_criteria: The system displays validation errors indicating that required
-    fields cannot be empty.
-- name: Explorer Navigates Unusual Paths Before Creating an Agent
-  description: An explorer navigates through various sections of the site before attempting
+  steps_description: '1. Navigate to https://work.toqan.ai/agents.
+
+    2. Click on ''Create New Agent''.
+
+    3. Enter special characters like "!@#$%^&*()" into the agent name field and submit.'
+  success_criteria: The system accepts or rejects input with a clear message, ensuring
+    no UI or backend errors occur.
+- name: Explorer Attempts Unusual Navigation Paths During Agent Creation
+  description: An explorer user navigates through unexpected paths while attempting
     to create an agent.
   priority: low
   feature_category: navigation
-  target_feature: Site Navigation Before Agent Creation
+  target_feature: Agent Creation Navigation Flow
   test_persona: explorer
-  steps_description: 1. Navigate to https://work.toqan.ai, explore sections like 'About
-    Us' or 'Contact', then return to home page. 2. Finally, click on 'Create Agent'
-    and complete the form submission process.
-  success_criteria: '''Create Agent'' functionality remains accessible after exploring
-    other site sections, allowing successful agent creation.'
-- name: Impatient User Rapidly Submits Agent Creation Form Multiple Times
-  description: An impatient user submits the agent creation form multiple times in
-    quick succession.
-  priority: high
-  feature_category: forms
-  target_feature: Agent Creation Form Submission Handling
-  test_persona: impatient_user
-  steps_description: 1. Navigate to https://work.toqan.ai and fill out the agent creation
-    form quickly. 2. Click the 'Submit' button multiple times rapidly before receiving
-    a response.
-  success_criteria: The system processes only one submission, preventing duplicate
-    agents from being created.
-- name: '''Edge Case'': Long String Input in Description Field During Agent Creation '
-  description: '''Edge Case'': Testing how long string inputs are handled in description
-    field during agent creation.'
+  steps_description: '1. Navigate to https://work.toqan.ai/agents.
+
+    2. Use browser back button after opening ''Create New Agent'' form.
+
+    3. Return forward using browser history to see if form state persists.'
+  success_criteria: '''Create New Agent'' form retains previously entered data or
+    resets appropriately with no errors.'
+- name: Impatient User Rapidly Clicks Through Agent Creation Process
+  description: An impatient user clicks rapidly through steps without waiting for
+    page loads or confirmations during agent creation.
   priority: medium
   feature_category: forms
-  target_feature: '''Description Field'' in Agent Creation Form '
-  test_persona: edge_case
-  steps_description: 1. Navigate to https://work.toqan.ai and click on 'Create Agent'.
-    2. Enter a very long string (e.g., 5000 characters) into the 'Description' field
-    and submit.
-  success_criteria: The system either truncates or rejects overly long inputs with
-    a clear error message.
-- name: Angry User Inputs Profanity in Agent Name Field During Creation
-  description: An angry user inputs profanity into the agent name field during creation.
+  target_feature: Agent Creation Form Responsiveness
+  test_persona: impatient_user
+  steps_description: '1. Navigate to https://work.toqan.ai/agents.
+
+    2. Rapidly click ''Create New Agent'' multiple times before it fully loads.
+
+    3. Quickly fill out and submit the form without waiting for validation feedback.'
+  success_criteria: '''Create New Agent'' button handles multiple clicks gracefully,
+    preventing duplicate forms or submissions.'
+- name: Angry User Inputs Profanity in Agent Description Field
+  description: An angry user inputs profanity in the description field during agent
+    creation to test content filtering.
   priority: low
   feature_category: forms
-  target_feature: '''Agent Name Field'' in Agent Creation Form'
+  target_feature: Agent Description Content Filtering
   test_persona: angry_user
-  steps_description: 1. Navigate to https://work.toqan.ai and click on 'Create Agent'.
-    2. Enter profanity into the 'Agent Name' field and attempt submission.
-  success_criteria: The system detects inappropriate language, providing a warning
-    or blocking submission until corrected.
+  steps_description: '1. Navigate to https://work.toqan.ai/agents.
+
+    2. Click on ''Create New Agent''.
+
+    3. Enter profanity into the description field and attempt submission.'
+  success_criteria: '''Profanity detected'' message appears, preventing submission
+    until content is cleaned.'
+- name: 'Edge Case: Empty Inputs During Agent Creation Submission Attempted by Explorer
+    Persona'
+  description: ''
+  priority: medium
+  feature_category: forms
+  target_feature: Agent Creation Form Validation
+  test_persona: edge_case
+  steps_description: '1. Navigate to https://work.toqan.ai/agents.
+
+    2. Click on ''Create New Agent''.
+
+    3. Attempt to submit the form without filling any fields.'
+  success_criteria: The system displays validation errors indicating required fields
+    must be filled before submission.
