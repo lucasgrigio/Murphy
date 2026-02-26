@@ -175,7 +175,7 @@ PERSONA-SPECIFIC SUCCESS CRITERIA GUIDANCE:
 - happy_path: "The agent completes the expected flow and arrives at the correct page/state"
 - confused_novice: "The website gracefully handles the confused interaction — no crash, no blank page, shows a helpful error or redirects appropriately"
 - adversarial: "The website does NOT execute injected scripts, does NOT expose debug info, shows an appropriate error or sanitizes the input"
-- edge_case: "The website handles the edge case without crashing — shows a validation message, truncates gracefully, or ignores invalid input"
+- edge_case: "The website handles the edge case without crashing — shows a validation message, disables the submit button, truncates gracefully, applies input constraints, or ignores invalid input. A disabled submit button IS acceptable validation. For long inputs: successfully accepting the input without crashing or corruption is valid behavior."
 - explorer: "The website remains functional and navigable even through an unusual path"
 - impatient_user: "The website handles rapid/premature interactions without corrupting state — no duplicate submissions, no broken UI, no data loss"
 - angry_user: "The website absorbs the hostile interaction gracefully — no crash, no inappropriate response to profanity in inputs, no infinite loops from rapid clicks"
@@ -198,7 +198,8 @@ IMPORTANT — Success criteria rules:
 
 CRITICAL — Adversarial and edge-case success criteria:
 - For adversarial tests: if the site accepts the input without crashing, erroring, or exposing sensitive data, that IS a pass. Do NOT require the site to show a specific error message for malicious input — silent sanitization is valid and correct behavior.
-- For edge_case tests: if the site handles unusual input without breaking (no crash, no unhandled exception, no corrupted display), that IS a pass — even if no explicit validation message appears.
+- For edge_case tests: accept ANY graceful handling — validation error messages, disabled submit buttons, input constraints, or silent rejection are ALL valid. If the site handles unusual input without breaking (no crash, no unhandled exception, no corrupted display), that IS a pass — even if no explicit validation message appears. A disabled submit button IS a validation mechanism.
+- For long input tests: if the site accepts the input without crashing, truncating silently, or corrupting data, that IS a pass. Successfully processing long input is valid behavior — do NOT require the site to reject or truncate it.
 - For angry_user tests: if the site absorbs hostile input (profanity, rage-clicks) without crashing or exposing errors, that IS a pass. Do NOT assume the site has profanity detection or specific error messages for hostile input.
 - Do NOT assume the site has features it hasn't demonstrated (e.g., profanity filters, injection-specific error messages, input length validators). Base success criteria only on observable behavior and what the analysis discovered.
 
@@ -574,25 +575,22 @@ def _build_execution_prompt(
 		f'- If the expected UI element is not found after 2 attempts, the page structure differs from expectations. Report what you actually observe and complete the test with that information.\n'
 		f'- Your step budget is limited. Never repeat a failed action more than once.\n\n'
 		f'VALIDATION RULES:\n'
-		f'- Validate outcome state before returning success (no inference from partial signals).\n'
-		f'- Use visible UI signals only: toasts, badges, list rows, detail cards, confirmation messages.\n'
-		f'- For create flows: confirm new entity appears with a recognizable identifier.\n'
-		f'- For delete flows: confirm entity is absent from list/search.\n'
-		f'- For edit flows: reopen and confirm updates persist.\n'
-		f'- If evidence is ambiguous, return success=false.\n'
-		f'- If the primary completion signal/action is blocked, disabled, or inconclusive, perform one alternate in-app verification route before deciding verdict.\n'
-		f'- Alternate verification must be within the app (e.g., list/detail/search/status views) and should check for objective outcome evidence.\n'
+		f'- After performing the primary action, check the page state for outcome evidence.\n'
+		f'- Acceptable evidence of success includes (ANY of these count):\n'
+		f'  - Explicit confirmation: toasts, banners, success messages, confirmation pages.\n'
+		f'  - State change: new item in a list, updated field value, page redirect, URL change.\n'
+		f'  - Absence of failure: no error message, no crash, no broken UI — the action completed and the page remains functional.\n'
+		f'- For create flows: check if the new entity appears in a list, detail view, or the page redirected to the new entity. If the page simply returned to a normal state with no error, that is ALSO acceptable evidence.\n'
+		f'- For delete flows: confirm entity is absent from list/search, or that a confirmation was shown.\n'
+		f'- For edit flows: check if updated values are visible, or reopen and confirm.\n'
+		f'- Do NOT assume failure just because no explicit confirmation message appeared. Many sites process actions silently — if the action was accepted without error and the page state is consistent, treat that as success.\n'
+		f'- If the primary completion signal/action is blocked or disabled, perform one alternate in-app verification route (list/detail/search/status views) before deciding verdict.\n'
 		f'- During alternate verification, do not re-run the full primary workflow; verify existing outcome state only.\n'
-		f'- If evidence is ambiguous, contradictory, or missing, return success=false and explain what could not be verified.\n'
-		f'- Verify scenario success_criteria explicitly and cite which UI signal satisfied each required condition.\n\n'
+		f'- If evidence clearly contradicts success (error shown, action rejected, entity missing after create), return success=false and explain what went wrong.\n\n'
 		f'DOM STATE RULES:\n'
 		f'- If UI appears empty, call refresh_dom_state before any reload. Do not repeatedly reload the same URL.\n'
 		f'- If navigation to a destination fails or page state is non-interactive/ambiguous afterward, call refresh_dom_state before any second navigation attempt.\n'
 		f'- Do not issue consecutive navigate actions to the same destination unless refresh_dom_state has been called in between.\n\n'
-		f'VALIDATION FALLBACK:\n'
-		f'- Validation-only fallback mode: once the primary outcome action has been attempted (e.g., create/delete/update submit), do NOT restart the full primary workflow.\n'
-		f'- In validation-only fallback mode, only perform evidence checks (list/detail/search/status/confirmation views) to verify whether outcome exists or not.\n'
-		f'- If fallback verification cannot confirm outcome, return success=false with explicit missing evidence; do not create/delete/update again as a workaround.\n'
 		+ (
 			f'\nFILE UPLOAD:\n'
 			f'- If the scenario requires file upload, use the provided available file paths with upload_file.\n'
