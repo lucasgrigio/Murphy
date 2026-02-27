@@ -1437,8 +1437,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 				'Include everything you found out for the ultimate task in the done text.'
 			)
 			self.logger.info(
-				f'🛑 Force done on severe loop (repetition={ld.max_repetition_count}, '
-				f'stagnation={ld.consecutive_stagnant_pages})'
+				f'🛑 Force done on severe loop (repetition={ld.max_repetition_count}, stagnation={ld.consecutive_stagnant_pages})'
 			)
 			self._message_manager._add_context_message(UserMessage(content=msg))
 			self.AgentOutput = self.DoneAgentOutput

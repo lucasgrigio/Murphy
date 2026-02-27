@@ -10,13 +10,15 @@ from pathlib import Path
 from murphy.models import EvaluationReport, ExecutiveSummary, TestResult, WebsiteAnalysis
 
 
-def copy_screenshots_to_output(report: EvaluationReport, output_dir: Path) -> None:
+def copy_screenshots_to_output(report: EvaluationReport, output_dir: Path, *, clear_previous: bool = True) -> None:
 	"""Copy test screenshots to a stable output directory, organized by test.
 
 	Idempotent: skips results whose screenshots already live inside the output dir
 	(happens when save_callback invokes this incrementally after each test).
 	"""
 	screenshots_dir = output_dir / 'screenshots'
+	if clear_previous and screenshots_dir.exists():
+		shutil.rmtree(screenshots_dir)
 	screenshots_dir_resolved = screenshots_dir.resolve()
 	for i, result in enumerate(report.results, 1):
 		if not result.screenshot_paths:
@@ -26,24 +28,19 @@ def copy_screenshots_to_output(report: EvaluationReport, output_dir: Path) -> No
 		if not valid_paths:
 			continue
 		# Already copied on a previous incremental call — skip
-		if all(
-			str(Path(p).resolve()).startswith(str(screenshots_dir_resolved))
-			for p in valid_paths
-		):
+		if all(str(Path(p).resolve()).startswith(str(screenshots_dir_resolved)) for p in valid_paths):
 			continue
 		test_dir = screenshots_dir / f'test_{i:02d}_{_slugify(result.scenario.name)}'
 		test_dir.mkdir(parents=True, exist_ok=True)
+		copied_paths: list[str] = []
 		for src_path_str in valid_paths:
 			src = Path(src_path_str).resolve()
 			dst = (test_dir / Path(src_path_str).name).resolve()
 			if src.exists() and src != dst:
 				shutil.copy2(src, dst)
+				copied_paths.append(str(dst))
 		# Update paths to point to copied location
-		result.screenshot_paths = [
-			str(test_dir / Path(p).name)
-			for p in valid_paths
-			if Path(p).exists()
-		]
+		result.screenshot_paths = copied_paths
 
 
 def _slugify(name: str) -> str:
@@ -226,15 +223,8 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 
 	# ── Screenshots ──
 	if r.screenshot_paths:
-		lines += ['**Screenshots:**']
-		# Show first, last, and any mid-point screenshots
 		total = len(r.screenshot_paths)
-		key_indices = {0, total // 2, total - 1} if total > 3 else set(range(total))
-		for idx in sorted(key_indices):
-			path = r.screenshot_paths[idx]
-			lines.append(f'- Step {idx + 1}/{total}: {Path(path).name}')
-		if total > 3:
-			lines.append(f'- _{total - len(key_indices)} more screenshots available in output directory_')
+		lines.append(f'**Screenshots:** {total} screenshot{"s" if total != 1 else ""} saved to `screenshots/` directory')
 		lines.append('')
 
 	# ── Validation evidence ──
@@ -516,9 +506,17 @@ def _suggest_fix(result: TestResult) -> str:
 	if persona in ('adversarial', 'edge_case', 'angry_user'):
 		# Check if the site actually handled it fine but the test expected explicit feedback
 		silent_handling_signals = [
-			'no error', 'no explicit', 'no visible', 'no message', 'accepted',
-			'no validation', 'did not show', 'without showing', 'no indication',
-			'silently', 'no feedback',
+			'no error',
+			'no explicit',
+			'no visible',
+			'no message',
+			'accepted',
+			'no validation',
+			'did not show',
+			'without showing',
+			'no indication',
+			'silently',
+			'no feedback',
 		]
 		if any(signal in failure_reason or signal in reasoning for signal in silent_handling_signals):
 			return (
@@ -581,9 +579,6 @@ def _suggest_fix(result: TestResult) -> str:
 
 	# Fallback with actual failure reason included
 	if failure_reason_raw:
-		return (
-			f'The test failed during the "{persona.replace("_", " ")}" scenario. '
-			f'Specific observation: {failure_reason_raw}'
-		)
+		return f'The test failed during the "{persona.replace("_", " ")}" scenario. Specific observation: {failure_reason_raw}'
 
 	return ''

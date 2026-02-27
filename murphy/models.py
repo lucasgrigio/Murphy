@@ -1,8 +1,8 @@
 """Pydantic models for the Murphy evaluation pipeline."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AfterValidator, BaseModel, Field, model_validator
 
 # ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -98,7 +98,7 @@ class WebsiteAnalysis(BaseModel):
 
 
 class TestScenario(BaseModel):
-	name: str
+	name: Annotated[str, AfterValidator(lambda v: v[:100] if len(v) > 100 else v)]
 	description: str = Field(min_length=1)
 	priority: Literal['critical', 'high', 'medium', 'low']
 	feature_category: FeatureCategory
@@ -140,8 +140,7 @@ class ScenarioExecutionVerdict(BaseModel):
 	validation_evidence: str = Field(
 		default='',
 		description=(
-			'Concrete verification evidence used for verdict: what was checked, '
-			'where it was checked, and what was observed.'
+			'Concrete verification evidence used for verdict: what was checked, where it was checked, and what was observed.'
 		),
 	)
 
@@ -179,6 +178,7 @@ class ReportSummary(BaseModel):
 
 class ExecutiveSummary(BaseModel):
 	"""LLM-generated executive summary of evaluation findings."""
+
 	overall_assessment: str = Field(description='1-2 sentence overall site quality assessment.')
 	key_findings: list[str] = Field(description='3-5 key UX findings ranked by severity.')
 	recommended_actions: list[str] = Field(description='Top 3 recommended actions to improve the site.')

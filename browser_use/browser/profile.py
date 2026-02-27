@@ -383,7 +383,7 @@ class BrowserLaunchArgs(BaseModel):
 		validation_alias=AliasChoices('browser_binary_path', 'chrome_binary_path'),
 		description='Path to the chromium-based browser executable to use.',
 	)
-	headless: bool | None = Field(default=None, description='Whether to run the browser in headless or windowed mode.')
+	headless: bool | None = Field(default=True, description='Whether to run the browser in headless or windowed mode.')
 	args: list[CliArgStr] = Field(
 		default_factory=list, description='List of *extra* CLI args to pass to the browser when launching.'
 	)

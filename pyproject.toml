@@ -1,7 +1,7 @@
 [project]
 name = "murphy"
 description = "AI-driven website evaluation powered by browser-use"
-authors = [{ name = "MIH AI B.V." }]
+authors = [{ name = "Prosus N.V." }]
 version = "0.11.10a1"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
@@ -38,7 +38,6 @@ dependencies = [
     "google-api-python-client>=2.174.0",
     "google-auth>=2.40.3",
     "google-auth-oauthlib>=1.2.2",
-    "mcp>=1.10.1",
     "pypdf>=5.7.0",
     "reportlab>=4.0.0",
     "cdp-use>=1.4.4",
@@ -48,6 +47,8 @@ dependencies = [
     "markdownify>=1.2.0",
     "python-docx>=1.2.0",
     "browser-use-sdk>=2.0.12",
+    "fastapi>=0.115.8",
+    "uvicorn>=0.34.0",
 ]
 # google-api-core: only used for Google LLM APIs
 # pyperclip: only used for examples that use copy/paste
@@ -60,8 +61,6 @@ dependencies = [
 # textual: used for terminal UI
 
 [project.optional-dependencies]
-cli = ["textual>=3.2.0"]
-code = ["matplotlib>=3.9.0", "numpy>=2.3.2", "pandas>=2.2.0", "tabulate>=0.9.0"]
 aws = ["boto3>=1.38.45"]
 oci = ["oci>=2.126.4"]
 video = ["imageio[ffmpeg]>=2.37.0", "numpy>=2.3.2"]
@@ -80,8 +79,7 @@ eval = [
     "psutil>=7.0.0",
     "datamodel-code-generator>=0.26.0",
 ]
-cli-oci = ["murphy[cli,oci]"]
-all = ["murphy[cli,examples,aws,oci]"]
+all = ["murphy[examples,aws,oci]"]
 
 # will prefer to use local source code checked out in ../../browser-use (if present) instead of pypi browser-use package
 # [tool.uv.sources]
@@ -93,11 +91,7 @@ Repository = "https://github.com/browser-use/browser-use"
 
 [project.scripts]
 murphy = "murphy.cli:main"  # AI-driven website evaluation (primary)
-browser-use = "browser_use.skill_cli.main:main"  # browser-use CLI
-browseruse = "browser_use.skill_cli.main:main"  # Alias for browser-use
-bu = "browser_use.skill_cli.main:main"  # Alias for browser-use
-browser = "browser_use.skill_cli.main:main"  # Alias for browser-use
-browser-use-tui = "browser_use.cli:main"  # Legacy TUI interface
+murphy-api = "murphy.api:main"  # Murphy REST API server
 
 [build-system]
 requires = ["hatchling"]
@@ -169,8 +163,6 @@ include = [
     "!browser_use/**/tests/*.py",
     "!browser_use/**/tests.py",
 	"browser_use/agent/system_prompts/*.md",
-    "browser_use/code_use/system_prompt.md",
-    "browser_use/cli_templates/*.py",
     "browser_use/py.typed",
     "browser_use/dom/**/*.js",
     "!tests/**/*.py",

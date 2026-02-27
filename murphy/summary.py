@@ -1,0 +1,136 @@
+"""Murphy — results classification, summary building, and report writing."""
+
+from pathlib import Path
+from typing import Literal
+
+from browser_use.llm import ChatOpenAI, SystemMessage, UserMessage
+from murphy.models import (
+	ExecutiveSummary,
+	ReportSummary,
+	TestResult,
+	WebsiteAnalysis,
+)
+from murphy.report import write_full_report
+
+
+def classify_failure(result: TestResult) -> Literal['website_issue', 'test_limitation'] | None:
+	"""Classify a failed test as a website issue or a test limitation.
+
+	Delegates to the judge LLM's failure_category field, which has full context
+	about the agent's actions and the website's behavior.
+
+	Crashed tests (success=None, no judgement) are automatically classified as
+	test_limitation — the test infrastructure failed, not the website.
+	"""
+	if result.success is True:
+		return None
+	# Crashed tests: success=None with no judgement → test infrastructure failure
+	if result.success is None:
+		return 'test_limitation'
+	judgement = result.judgement or {}
+	return judgement.get('failure_category')
+
+
+def build_summary(results: list[TestResult]) -> ReportSummary:
+	"""Build a summary of test results by priority and failure category."""
+	passed = sum(1 for r in results if r.success is True)
+	failed = sum(1 for r in results if r.success is not True)
+	total = len(results)
+
+	by_priority: dict[str, dict[str, int]] = {}
+	for r in results:
+		p = r.scenario.priority
+		if p not in by_priority:
+			by_priority[p] = {'passed': 0, 'failed': 0}
+		if r.success is True:
+			by_priority[p]['passed'] += 1
+		else:
+			by_priority[p]['failed'] += 1
+
+	website_issues = sum(1 for r in results if r.failure_category == 'website_issue')
+	test_limitations = sum(1 for r in results if r.failure_category == 'test_limitation')
+
+	return ReportSummary(
+		total=total,
+		passed=passed,
+		failed=failed,
+		pass_rate=round(passed / total * 100, 1) if total > 0 else 0.0,
+		website_issues=website_issues,
+		test_limitations=test_limitations,
+		by_priority=by_priority,
+	)
+
+
+async def generate_executive_summary(
+	url: str,
+	analysis: WebsiteAnalysis,
+	results: list[TestResult],
+	summary: ReportSummary,
+	llm: ChatOpenAI,
+) -> ExecutiveSummary:
+	"""Generate an LLM-powered executive summary of the evaluation results."""
+	results_summary_parts: list[str] = []
+	for i, r in enumerate(results, 1):
+		status = 'PASSED' if r.success else 'FAILED'
+		persona = r.scenario.test_persona.replace('_', ' ')
+		reason = ''
+		if not r.success:
+			reason = r.reason or (r.judgement or {}).get('failure_reason', '')
+			category = r.failure_category or 'unknown'
+			reason = f' | Category: {category} | Reason: {reason}'
+		results_summary_parts.append(
+			f'{i}. [{status}] {r.scenario.name} (persona: {persona}, priority: {r.scenario.priority}){reason}'
+		)
+
+	prompt = f"""Analyze these website evaluation results and produce an executive summary.
+
+Website: {url}
+Site: {analysis.site_name} ({analysis.category})
+Description: {analysis.description}
+
+Results: {summary.passed}/{summary.total} tests passed ({summary.pass_rate}%)
+- Website Issues: {summary.website_issues}
+- Test Limitations: {summary.test_limitations}
+
+Individual results:
+{chr(10).join(results_summary_parts)}
+
+Provide:
+1. overall_assessment: 1-2 sentences on the site's overall quality based on test results
+2. key_findings: 3-5 specific UX findings ranked by severity (most severe first). Each finding should reference specific test results.
+3. recommended_actions: Top 3 concrete actions the site team should take to improve UX
+
+Be specific and actionable. Reference actual test names and outcomes. Do NOT use generic statements."""
+
+	response = await llm.ainvoke(
+		messages=[
+			SystemMessage(
+				content='You are a senior UX analyst writing an executive summary of automated website testing results. Be concise, specific, and actionable.'
+			),
+			UserMessage(content=prompt),
+		],
+		output_format=ExecutiveSummary,
+	)
+
+	result = response.completion
+	assert isinstance(result, ExecutiveSummary), f'Expected ExecutiveSummary, got {type(result)}'
+	return result
+
+
+def write_reports_and_print(
+	url: str,
+	analysis: WebsiteAnalysis,
+	results: list[TestResult],
+	output_dir: Path,
+	executive_summary: ExecutiveSummary | None = None,
+) -> None:
+	"""Write JSON + markdown reports and print summary to console."""
+	json_path, md_path = write_full_report(url, analysis, results, output_dir, executive_summary=executive_summary)
+	summary = build_summary(results)
+
+	print(f'\n{"=" * 60}')
+	print('Evaluation Complete')
+	print(f'{"=" * 60}')
+	print(f'\n  Pass rate: {summary.pass_rate}% ({summary.passed}/{summary.total})')
+	print(f'  JSON report: {json_path}')
+	print(f'  Markdown report: {md_path}')

@@ -1,0 +1,100 @@
+# Murphy Test Plan — https://work.toqan.ai
+# Generated: 2026-02-27T13:59:05.444770+00:00
+# Edit freely: add/remove/modify scenarios, then re-run with --plan flag.
+
+url: https://work.toqan.ai
+generated_at: '2026-02-27T13:59:05.444770+00:00'
+scenarios:
+- name: Happy Path Agent Creation
+  description: A standard user successfully creates an agent using the expected flow.
+  priority: critical
+  feature_category: forms
+  target_feature: Agent Creation Form
+  test_persona: happy_path
+  steps_description: Complete the agent creation form with valid data (use default
+    values, or manually input each field). Submit the form (via Submit button, Enter
+    key, or any submit control).
+  success_criteria: The agent is created successfully and visible in the agent list
+    (confirmation message, redirect to agent list, or visual update of the list).
+- name: Confused Novice Agent Creation Attempt
+  description: A novice user attempts to create an agent but makes mistakes such as
+    misclicks and wrong inputs.
+  priority: medium
+  feature_category: forms
+  target_feature: Agent Creation Form
+  test_persona: confused_novice
+  steps_description: Attempt to fill out the agent creation form with incorrect data
+    types (e.g., numbers in text fields) or leave fields blank. Try to navigate away
+    from the form and return (using browser back button or site navigation).
+  success_criteria: The site guides the user back to correct input without losing
+    data (error prompts, field highlights, or auto-correction).
+- name: Adversarial Input Handling in Agent Creation
+  description: An adversarial user inputs potentially harmful data into the agent
+    creation form.
+  priority: high
+  feature_category: forms
+  target_feature: Agent Creation Form Security
+  test_persona: adversarial
+  steps_description: Enter XSS payloads or SQL injection strings into text fields.
+    Attempt to submit the form (via Submit button, Enter key, or any submit control).
+  success_criteria: The site handles malicious input gracefully without executing
+    it (error message, input sanitization, or rejection without execution).
+- name: 'Edge Case: Special Characters in Agent Name'
+  description: Test how special characters are handled in the agent name field during
+    creation.
+  priority: medium
+  feature_category: forms
+  target_feature: Agent Name Field Validation
+  test_persona: edge_case
+  steps_description: Input a variety of special characters into the agent name field.
+    Submit the form (via Submit button, Enter key, or any submit control).
+  success_criteria: The site processes special characters correctly without crashing
+    (acceptance with correct display, rejection with error message, or sanitization
+    of input).
+- name: '''Empty Input'' Edge Case During Agent Creation Submission '
+  description: Test submission of an empty form during agent creation.
+  priority: medium
+  feature_category: forms
+  target_feature: Agent Creation Form Validation
+  test_persona: edge_case
+  steps_description: Attempt to submit the agent creation form without filling any
+    fields. Try different submission methods (Submit button, Enter key).
+  success_criteria: The site prevents submission and prompts for required fields (error
+    messages for each empty field, blocking submission until filled, or highlighting
+    required fields).
+- name: Explorer's Unusual Navigation During Agent Creation
+  description: An explorer user navigates through unexpected paths while creating
+    an agent.
+  priority: low
+  feature_category: navigation
+  target_feature: Agent Creation Navigation Flow
+  test_persona: explorer
+  steps_description: Start filling out the agent creation form and navigate away mid-process
+    using unexpected paths (open new tabs/windows with different sections of the site).
+    Return to complete submission.
+  success_criteria: The site maintains session state and allows continuation without
+    data loss (form state preserved on return, session timeout warning if applicable,
+    or seamless resumption of task).
+- name: Impatient User's Rapid Interaction with Agent Form
+  description: An impatient user interacts rapidly with the agent creation form elements.
+  priority: medium
+  feature_category: forms
+  target_feature: 'Agent Form Responsiveness Under Stressful Interaction '
+  test_persona: impatient_user
+  steps_description: Quickly fill out and submit the agent creation form by rapidly
+    clicking through fields and controls. Attempt multiple submissions in quick succession.
+  success_criteria: . The site handles rapid interactions gracefully without errors
+    (debouncing multiple submissions, maintaining performance speed, or providing
+    feedback on processing status).
+- name: '. Angry User''s Profanity in Agent Description Field '
+  description: . An angry user inputs profanity into description fields during agent
+    creation.
+  priority: low
+  feature_category: content_display
+  target_feature: Profanity Filter in Description Field
+  test_persona: angry_user
+  steps_description: . Enter profane language into description fields. Attempt to
+    submit the form.
+  success_criteria: . The site handles profanity appropriately without crashing (profanity
+    filtered out before submission, warning about inappropriate content, or rejection
+    of submission with feedback).

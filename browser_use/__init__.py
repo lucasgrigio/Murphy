@@ -52,7 +52,6 @@ if TYPE_CHECKING:
 	from browser_use.agent.views import ActionModel, ActionResult, AgentHistoryList
 	from browser_use.browser import BrowserProfile, BrowserSession
 	from browser_use.browser import BrowserSession as Browser
-	from browser_use.code_use.service import CodeAgent
 	from browser_use.dom.service import DomService
 	from browser_use.llm import models
 	from browser_use.llm.anthropic.chat import ChatAnthropic
@@ -65,15 +64,12 @@ if TYPE_CHECKING:
 	from browser_use.llm.ollama.chat import ChatOllama
 	from browser_use.llm.openai.chat import ChatOpenAI
 	from browser_use.llm.vercel.chat import ChatVercel
-	from browser_use.sandbox import sandbox
 	from browser_use.tools.service import Controller, Tools
 
 	# Lazy imports mapping - only import when actually accessed
 _LAZY_IMPORTS = {
 	# Agent service (heavy due to dependencies)
 	# 'Agent': ('browser_use.agent.service', 'Agent'),
-	# Code-use agent (Jupyter notebook-like execution)
-	'CodeAgent': ('browser_use.code_use.service', 'CodeAgent'),
 	'Agent': ('browser_use.agent.service', 'Agent'),
 	# System prompt (moderate weight due to agent.views imports)
 	'SystemPrompt': ('browser_use.agent.prompts', 'SystemPrompt'),
@@ -102,8 +98,6 @@ _LAZY_IMPORTS = {
 	'ChatVercel': ('browser_use.llm.vercel.chat', 'ChatVercel'),
 	# LLM models module
 	'models': ('browser_use.llm.models', None),
-	# Sandbox execution
-	'sandbox': ('browser_use.sandbox', 'sandbox'),
 }
 
 
@@ -131,8 +125,6 @@ def __getattr__(name: str):
 
 __all__ = [
 	'Agent',
-	'CodeAgent',
-	# 'CodeAgent',
 	'BrowserSession',
 	'Browser',  # Alias for BrowserSession
 	'BrowserProfile',
@@ -157,6 +149,4 @@ __all__ = [
 	'Controller',
 	# LLM models module
 	'models',
-	# Sandbox execution
-	'sandbox',
 ]

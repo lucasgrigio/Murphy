@@ -1,0 +1,12 @@
+Murphy
+Copyright 2025 Prosus N.V.
+
+This product includes software developed at Prosus N.V.
+(https://www.prosus.com/).
+
+This product bundles the following third-party software:
+
+  browser_use/
+    MIT License
+    Copyright (c) 2024 Gregor Zunic
+    See browser_use/LICENSE for the full license text.

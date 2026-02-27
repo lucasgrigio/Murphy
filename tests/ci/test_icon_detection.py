@@ -152,6 +152,5 @@ class TestIconDetection:
 		idx, el = _find_element_by_attr(selector_map, 'aria-label', 'Main Navigation')
 		# nav itself should not appear — only its child <a> link should
 		assert el is None or el.tag_name.lower() != 'nav', (
-			f'<nav> element should not be in selector_map as interactive. '
-			f'Found: tag={el.tag_name if el else "N/A"}'
+			f'<nav> element should not be in selector_map as interactive. Found: tag={el.tag_name if el else "N/A"}'
 		)

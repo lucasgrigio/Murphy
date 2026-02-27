@@ -350,6 +350,4 @@ class TestStaleDisabledCheck:
 		assert len(results) == 2, f'Expected 2 results but got {len(results)}: {results}'
 		# Neither should have a "disabled element" error
 		for r in results:
-			assert r.error is None or 'disabled' not in r.error.lower(), (
-				f'Got unexpected disabled error: {r.error}'
-			)
+			assert r.error is None or 'disabled' not in r.error.lower(), f'Got unexpected disabled error: {r.error}'

@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypeVar, overload
 
+from examples.models.langchain.serializer import LangChainMessageSerializer
 from pydantic import BaseModel
 
 from browser_use.llm.base import BaseChatModel
 from browser_use.llm.exceptions import ModelProviderError
 from browser_use.llm.messages import BaseMessage
 from browser_use.llm.views import ChatInvokeCompletion, ChatInvokeUsage
-from examples.models.langchain.serializer import LangChainMessageSerializer
 
 if TYPE_CHECKING:
 	from langchain_core.language_models.chat_models import BaseChatModel as LangChainBaseChatModel  # type: ignore

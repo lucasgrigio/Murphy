@@ -11,10 +11,10 @@ This example demonstrates how to:
 
 import asyncio
 
+from examples.models.langchain.chat import ChatLangchain
 from langchain_openai import ChatOpenAI  # pyright: ignore
 
 from browser_use import Agent
-from examples.models.langchain.chat import ChatLangchain
 
 
 async def main():

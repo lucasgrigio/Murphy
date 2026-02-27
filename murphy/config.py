@@ -1,0 +1,6 @@
+"""Murphy — shared constants and defaults."""
+
+DEFAULT_MAX_STEPS = 30
+DEFAULT_MAX_TESTS = 8
+DEFAULT_MAX_ACTIONS_PER_STEP = 3
+QUALITY_MAX_RETRIES = 2

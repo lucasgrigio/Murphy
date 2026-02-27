@@ -1,0 +1,44 @@
+# Murphy API server — lightweight Dockerfile for REST API deployment.
+#
+# Usage:
+#     docker build -f Dockerfile.murphy-api -t murphy-api .
+#     docker run -d -p 8000:8000 --env-file .env murphy-api
+#
+# Required env vars: MURPHY_API_KEY, OPENAI_API_KEY
+# Optional env vars: MURPHY_MAX_CONCURRENT_JOBS (default: 2), MURPHY_API_PORT (default: 8000)
+
+FROM python:3.11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    UV_CACHE_DIR=/root/.cache/uv \
+    UV_LINK_MODE=copy \
+    CHROME_PATH=/usr/bin/chromium
+
+# Install Chromium + minimal deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    chromium \
+    fonts-liberation \
+    fonts-dejavu-core \
+    libnss3 \
+    libxss1 \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+# Install dependencies first (layer caching)
+COPY pyproject.toml uv.lock* /app/
+RUN uv venv --python 3.11 && uv sync --no-dev --no-install-project
+
+# Copy source
+COPY . /app
+RUN uv sync --no-dev
+
+EXPOSE 8000
+
+CMD ["uv", "run", "uvicorn", "murphy.api:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "1800"]

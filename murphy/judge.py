@@ -43,22 +43,37 @@ You will receive three evidence sections:
 
 The test has a **Test Persona** that determines HOW you evaluate success:
 
-- **happy_path**: Judge whether the expected flow completed successfully. Standard pass/fail.
-- **confused_novice**: Judge whether the website HANDLED the confused behavior gracefully. A helpful error message, redirect, or gentle correction = PASS. A crash, blank page, or unhandled exception = FAIL. The user being confused is expected — the website's response is what matters.
-- **adversarial**: Judge whether the website RESISTED the attack. Input sanitized or rejected = PASS. The site accepting adversarial input WITHOUT crashing, leaking data, or executing injected code = PASS (silent sanitization is correct behavior). Script executed, debug info leaked, raw SQL error shown, or stack trace exposed = FAIL. Do NOT require the site to show a specific error message for malicious input — the absence of a negative outcome IS a pass.
-- **edge_case**: Judge whether the website handled unusual input without breaking. Validation error shown, disabled submit button, input truncated, input constraints, silent rejection, or graceful fallback = PASS. Unhandled exception, corrupted display, or crash = FAIL. A disabled submit button IS a validation mechanism — do NOT require an explicit error message. If the site accepted long input without crashing or corrupting data, that is ALSO a pass.
-- **explorer**: Judge whether the website remained functional and navigable through the unusual path. Pages still load, no dead ends or infinite loops = PASS.
-- **impatient_user**: Judge whether the website handled rapid/premature interactions without corruption. No duplicate submissions, no broken UI state, no data loss = PASS.
-- **angry_user**: Judge whether the website absorbed hostile interaction gracefully. No crash from rage-clicks, profanity in inputs doesn't cause errors, rapid navigation doesn't break state = PASS. Do NOT expect profanity detection or specific error messages for hostile input — if the site simply accepts the input and continues functioning normally, that IS a pass.
+- **happy_path** (UX persona): Judge whether the expected flow completed successfully. Clear feedback (confirmation, toast, redirect, page change) must be visible after key actions. Standard pass/fail.
+- **confused_novice** (UX persona): Judge whether the website PROVIDED CLEAR FEEDBACK for the confused behavior. A helpful error message, redirect, visual cue, or gentle correction = PASS. A disabled button with no explanation, silent rejection with no feedback, blank page, or crash = FAIL. The confused user NEEDS to understand what went wrong — silent handling is NOT sufficient.
+- **adversarial** (Security persona): Judge whether the website RESISTED the attack. Input sanitized or rejected = PASS. The site accepting adversarial input WITHOUT crashing, leaking data, or executing injected code = PASS (silent sanitization is correct behavior). Script executed, debug info leaked, raw SQL error shown, or stack trace exposed = FAIL. Do NOT require the site to show a specific error message for malicious input — the absence of a negative outcome IS a pass.
+- **edge_case** (Security persona): Judge whether the website handled unusual input without breaking. Validation error shown, input truncated, or graceful fallback = PASS. Unhandled exception, corrupted display, or crash = FAIL.
+- **explorer** (UX persona): Judge whether the website PROVIDED ORIENTATION at every step. Breadcrumbs, page titles, clear navigation state, 'no results' messages, or redirect with explanation = PASS. Dead ends with no feedback, blank pages, or silent failures = FAIL.
+- **impatient_user** (UX persona): Judge whether the website COMMUNICATED state clearly during rapid interactions. Loading indicators, queued-action feedback, or 'please wait' signals = PASS. Silent drops, no indication of whether the action worked, or invisible deduplication with no feedback = FAIL.
+- **angry_user** (Security persona): Judge whether the website absorbed hostile interaction gracefully. No crash from rage-clicks, profanity in inputs doesn't cause errors, rapid navigation doesn't break state = PASS. Do NOT expect profanity detection or specific error messages for hostile input — if the site simply accepts the input and continues functioning normally, that IS a pass.
 
-CRITICAL: For non-happy-path personas, the test PASSES if the website handles the unexpected behavior gracefully, even if the "task" itself didn't complete normally. A confused novice test that results in a helpful error page is a PASS. An adversarial test where the injection is sanitized is a PASS. An adversarial test where the input is silently accepted without any crash, data leak, or code execution is ALSO a PASS — silent sanitization is correct security behavior. Do NOT fail a test simply because the site didn't show an explicit error message for bad input.
+CRITICAL — Security-oriented personas (adversarial, edge_case, angry_user): The test PASSES if the website handles the unexpected behavior gracefully, even if the "task" itself didn't complete normally. An adversarial test where the injection is sanitized is a PASS. An adversarial test where the input is silently accepted without any crash, data leak, or code execution is ALSO a PASS — silent sanitization is correct security behavior. Do NOT fail a test simply because the site didn't show an explicit error message for bad input.
+
+CRITICAL — UX-oriented personas (happy_path, confused_novice, impatient_user, explorer): The test FAILS if the website handles the situation silently with no visible feedback. These personas represent real users who need to UNDERSTAND what happened. A disabled button with no tooltip, a form that silently rejects input, or an action with no confirmation is a UX failure even if no crash occurred. The site must provide visible guidance — error messages, loading indicators, inline hints, tooltips on disabled controls, or redirect explanations.
+
+## Success criteria interpretation
+
+Success criteria describe the EXPECTED BEHAVIORAL OUTCOME, not the only acceptable implementation. Apply these rules:
+
+- **Flexible mechanism matching**: If the criteria say "the site prevents empty form submission" and the site uses a disabled submit button instead of an error toast, that IS a pass — the behavior (prevention) was achieved through a different mechanism.
+- **Quoted text is illustrative, not literal**: Any quoted UI text in criteria (e.g., "'Please fill out this field'") is ONE example of acceptable behavior, not the only acceptable response. A site showing "Required" instead of "Please fill out this field" achieves the same outcome.
+- **Alternative outcomes**: When criteria list alternatives separated by OR, ANY one of them is sufficient for a pass.
+- **Non-happy-path default**: For security-oriented personas (adversarial, edge_case, angry_user), any mechanism that prevents the bad outcome (crash, data leak, unhandled exception, corrupted state) is a PASS. Only FAIL on demonstrable mishandling.
+- **Silent handling is valid for security-oriented personas (adversarial, edge_case, angry_user)**: If the site silently sanitizes input, ignores invalid data, or gracefully degrades without any visible feedback, that IS correct behavior for security personas — not a failure. For UX-oriented personas (happy_path, confused_novice, impatient_user, explorer), the site MUST provide visible feedback — a disabled button with no explanation, a silently ignored input, or a form that does nothing on submit is a FAIL.
+- **Disabled controls ARE prevention for security-oriented personas**: If a submit/publish/next button is disabled when fields are empty or invalid, that IS the site preventing submission for security personas. For UX-oriented personas, a disabled control MUST be accompanied by visible explanation (tooltip, inline text, grayed-out label explaining why) to count as a PASS.
+- **Focus on harm, not form** (security personas): Ask "did the site handle this situation without harm?" not "did the site handle it exactly as described?"
+- **Focus on clarity, not just harm** (UX personas): Ask "did the site help the user understand what happened?" not just "did it avoid crashing?" A site that silently swallows user input with no feedback is harmful to UX even if nothing technically broke.
 
 ## Failure classification
 
 If verdict is FALSE, you MUST also classify the failure:
 - **website_issue**: The agent executed the test (or got far enough) and observed the website behaving badly — empty page, broken UI, unhandled input, crash, error, missing validation, data corruption.
 - **test_limitation**: The agent could NOT complete the test itself — couldn't find an element, ran out of steps, navigated to wrong page, test steps were ambiguous or impossible.
-- IMPORTANT: If errors in the trace are clearly infrastructure/tooling issues (e.g., AttributeError, BrowserSession errors, CDP errors, refresh_dom_state failures, Python tracebacks from the test harness), classify as **test_limitation**, NOT website_issue. These are problems with the test tooling, not the website under test.
+- If the first URL in "Pages Reached" does not match or relate to the "Intended Starting URL", and the agent never navigated to the correct area, classify as **test_limitation** — the test infrastructure failed to place the agent on the right page.
 
 If verdict is TRUE, set failure_category to null.
 
@@ -81,6 +96,9 @@ JUDGE_USER_TEMPLATE = """\
 **Steps:** {steps}
 **Success Criteria:** {criteria}
 
+## Intended Starting URL
+{start_url}
+
 ## Navigation Evidence (pre-extracted)
 {navigation_evidence}
 
@@ -99,14 +117,12 @@ JUDGE_USER_TEMPLATE = """\
 ---
 
 ## Validation rules
-- After reviewing all evidence, determine whether the test's success criteria were met.
-- Acceptable evidence of success includes (ANY of these count):
-  - Explicit confirmation: toasts, banners, success messages, confirmation pages.
-  - State change: new item in a list, updated field value, page redirect, URL change.
-  - Absence of failure: no error message, no crash, no broken UI — the action completed and the page remained functional.
-- For non-happy-path personas (edge_case, adversarial, angry_user, etc.): apply the persona-specific rules from the system prompt. A disabled button, silent rejection, or absence of errors IS valid graceful handling.
-- Do NOT fail a test just because no explicit confirmation message appeared. If the action was accepted without error and the page state is consistent, that counts as success.
-- If evidence clearly contradicts success (error shown, action rejected, crash observed), return verdict=false.
+- Validate outcome state before returning a verdict (no inference from partial signals).
+- Use visible UI signals only: toasts, badges, list rows, detail cards, confirmation messages.
+- For create flows: confirm new entity appears with a recognizable identifier.
+- For delete flows: confirm entity is absent from list/search.
+- For edit flows: reopen and confirm updates persist.
+- If evidence is ambiguous, return verdict=false.
 
 Based on the Navigation Evidence and Pages Reached, did the agent successfully complete this test?
 """
@@ -227,6 +243,7 @@ async def murphy_judge(
 	history: AgentHistoryList,
 	scenario: TestScenario,
 	llm: ChatOpenAI,
+	start_url: str = '',
 ) -> dict:
 	"""Evaluate agent success based on action trace, not self-report."""
 	# Pre-processed evidence
@@ -250,6 +267,7 @@ async def murphy_judge(
 		description=scenario.description,
 		steps=scenario.steps_description,
 		criteria=scenario.success_criteria,
+		start_url=start_url or '(not provided)',
 		navigation_evidence=navigation_evidence,
 		pages_reached=pages_reached,
 		step_trace=step_trace,
