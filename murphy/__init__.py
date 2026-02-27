@@ -8,5 +8,6 @@ from murphy.execution import execute_tests_with_session as execute_tests_with_se
 from murphy.generation import explore_and_generate_plan as explore_and_generate_plan
 from murphy.generation import generate_tests as generate_tests
 from murphy.judge import murphy_judge as murphy_judge
+from murphy.models import JudgeVerdict as JudgeVerdict
 from murphy.summary import build_summary as build_summary
 from murphy.summary import classify_failure as classify_failure

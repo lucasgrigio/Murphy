@@ -3,7 +3,7 @@
 import re
 from collections import Counter
 
-from murphy.models import TestPlan, TestScenario
+from murphy.models import PERSONA_REGISTRY, TestPlan, TestScenario, TraitLevel
 
 
 def scenario_quality_issues(task: str, scenario: TestScenario) -> list[str]:
@@ -68,12 +68,35 @@ def plan_quality_issues(task: str, plan: TestPlan) -> list[str]:
 	if len(plan.scenarios) < 5:
 		issues.append(f'Plan has only {len(plan.scenarios)} scenarios (minimum 5)')
 
-	# 2. Required personas
-	personas_present = {s.test_persona for s in plan.scenarios}
-	required_personas = {'happy_path', 'confused_novice', 'adversarial', 'edge_case', 'explorer'}
-	missing = required_personas - personas_present
-	if missing:
-		issues.append(f'Missing required personas: {", ".join(sorted(missing))}')
+	# 2. Trait-space coverage validation
+	has_low_tech_lit = False
+	has_low_patience = False
+	has_adversarial_intent = False
+	has_high_exploration = False
+	for s in plan.scenarios:
+		entry = PERSONA_REGISTRY.get(s.test_persona)
+		if not entry:
+			continue
+		traits, _ = entry
+		if traits.technical_literacy == TraitLevel.low:
+			has_low_tech_lit = True
+		if traits.patience == TraitLevel.low:
+			has_low_patience = True
+		if traits.intent == 'adversarial':
+			has_adversarial_intent = True
+		if traits.exploration == TraitLevel.high:
+			has_high_exploration = True
+	coverage_gaps: list[str] = []
+	if not has_low_tech_lit:
+		coverage_gaps.append('low technical_literacy')
+	if not has_low_patience:
+		coverage_gaps.append('low patience')
+	if not has_adversarial_intent:
+		coverage_gaps.append('adversarial intent')
+	if not has_high_exploration:
+		coverage_gaps.append('high exploration')
+	if coverage_gaps:
+		issues.append(f'Missing trait coverage: {", ".join(coverage_gaps)}')
 
 	# 3. Critical happy path
 	has_critical_happy = any(s.test_persona == 'happy_path' and s.priority == 'critical' for s in plan.scenarios)

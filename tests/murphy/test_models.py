@@ -1,6 +1,6 @@
 """Tests for murphy pydantic models."""
 
-from murphy.models import ScenarioExecutionVerdict, TestResult, TestScenario
+from murphy.models import JudgeVerdict, ScenarioExecutionVerdict, TestResult, TestScenario
 
 
 def test_scenario_execution_verdict_defaults():
@@ -39,10 +39,18 @@ def _make_scenario() -> TestScenario:
 
 
 def test_test_result_has_evaluation_fields():
+	verdict = JudgeVerdict(
+		reasoning='All steps completed successfully',
+		verdict=True,
+		failure_reason='',
+		impossible_task=False,
+		reached_captcha=False,
+		failure_category=None,
+	)
 	r = TestResult(
 		scenario=_make_scenario(),
 		success=True,
-		judgement={'verdict': 'pass'},
+		judgement=verdict,
 		actions=[],
 		errors=[],
 		duration=1.5,
@@ -55,3 +63,6 @@ def test_test_result_has_evaluation_fields():
 	assert r.success is True
 	assert r.reason == 'All steps completed'
 	assert len(r.pages_visited) == 2
+	assert r.judgement is not None
+	assert r.judgement.verdict is True
+	assert r.judgement.reasoning == 'All steps completed successfully'

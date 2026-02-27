@@ -1,8 +1,9 @@
 """Pydantic models for the Murphy evaluation pipeline."""
 
-from typing import Annotated, Literal
+from enum import IntEnum
+from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, Field, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 # ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -30,6 +31,71 @@ TestPersona = Literal[
 	'impatient_user',  # clicks rapidly, doesn't wait for loads, skips steps
 	'angry_user',  # rage-clicks, types frustration into fields, force-navigates
 ]
+
+
+# ─── Trait system ─────────────────────────────────────────────────────────────
+
+
+class TraitLevel(IntEnum):
+	low = 1
+	medium = 2
+	high = 3
+
+
+class TraitVector(BaseModel):
+	model_config = ConfigDict(extra='forbid', frozen=True)
+	technical_literacy: TraitLevel = TraitLevel.medium
+	patience: TraitLevel = TraitLevel.medium
+	intent: Literal['benign', 'exploratory', 'adversarial'] = 'benign'
+	exploration: TraitLevel = TraitLevel.medium
+	reading_comprehension: TraitLevel = TraitLevel.medium
+
+
+TestType = Literal['ux', 'security', 'boundary']
+
+PERSONA_REGISTRY: dict[TestPersona, tuple[TraitVector, TestType]] = {
+	'happy_path': (
+		TraitVector(technical_literacy=TraitLevel.high, patience=TraitLevel.high, intent='benign', exploration=TraitLevel.low, reading_comprehension=TraitLevel.high),
+		'ux',
+	),
+	'confused_novice': (
+		TraitVector(technical_literacy=TraitLevel.low, patience=TraitLevel.medium, intent='benign', exploration=TraitLevel.medium, reading_comprehension=TraitLevel.low),
+		'ux',
+	),
+	'adversarial': (
+		TraitVector(technical_literacy=TraitLevel.high, patience=TraitLevel.high, intent='adversarial', exploration=TraitLevel.medium, reading_comprehension=TraitLevel.high),
+		'security',
+	),
+	'edge_case': (
+		TraitVector(technical_literacy=TraitLevel.high, patience=TraitLevel.medium, intent='exploratory', exploration=TraitLevel.low, reading_comprehension=TraitLevel.medium),
+		'boundary',
+	),
+	'explorer': (
+		TraitVector(technical_literacy=TraitLevel.medium, patience=TraitLevel.medium, intent='exploratory', exploration=TraitLevel.high, reading_comprehension=TraitLevel.medium),
+		'ux',
+	),
+	'impatient_user': (
+		TraitVector(technical_literacy=TraitLevel.medium, patience=TraitLevel.low, intent='benign', exploration=TraitLevel.low, reading_comprehension=TraitLevel.low),
+		'ux',
+	),
+	'angry_user': (
+		TraitVector(technical_literacy=TraitLevel.medium, patience=TraitLevel.low, intent='benign', exploration=TraitLevel.low, reading_comprehension=TraitLevel.low),
+		'security',
+	),
+}
+
+
+class FeedbackQualityScore(BaseModel):
+	model_config = ConfigDict(extra='forbid')
+	response_present: bool
+	response_timely: bool
+	response_clear: bool
+	response_actionable: bool
+	feedback_type: Literal[
+		'none', 'silent_handling', 'visual_state_change',
+		'inline_message', 'toast_notification', 'modal_dialog',
+		'page_redirect', 'error_page',
+	]
 
 
 # ─── Phase 1: Analysis ─────────────────────────────────────────────────────────
@@ -145,14 +211,31 @@ class ScenarioExecutionVerdict(BaseModel):
 	)
 
 
+# ─── Judge verdict ─────────────────────────────────────────────────────────────
+
+
+class JudgeVerdict(BaseModel):
+	reasoning: str
+	verdict: bool
+	failure_reason: str
+	impossible_task: bool
+	reached_captcha: bool
+	failure_category: Literal['website_issue', 'test_limitation'] | None
+	process_evaluation: str = ''
+	logical_evaluation: str = ''
+	usability_evaluation: str = ''
+	feedback_quality: FeedbackQualityScore | None = None
+	trait_evaluations: dict[str, str] | None = None
+
+
 # ─── Phase 3: Results ──────────────────────────────────────────────────────────
 
 
 class TestResult(BaseModel):
 	scenario: TestScenario
 	success: bool | None
-	judgement: dict | None
-	actions: list
+	judgement: JudgeVerdict | None
+	actions: list[dict[str, Any]]
 	errors: list[str | None]
 	duration: float
 	failure_category: Literal['website_issue', 'test_limitation'] | None = None
@@ -164,6 +247,8 @@ class TestResult(BaseModel):
 	usability_evaluation: str = ''
 	reason: str = ''
 	validation_evidence: str = ''
+	feedback_quality: FeedbackQualityScore | None = None
+	trait_evaluations: dict[str, str] | None = None
 
 
 class ReportSummary(BaseModel):

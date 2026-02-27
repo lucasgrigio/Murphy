@@ -105,10 +105,9 @@ We use a thin wrapper around CDP called cdp-use: https://github.com/browser-use/
     `cdp_client.send.Target.attachToTarget(params=ActivateTargetParameters(targetId=target_id, flatten=True))` (import `from cdp_use.cdp.target import ActivateTargetParameters`)
   - `cdp_client.register.Browser.downloadWillBegin(callback_func_here)` for event registration, INSTEAD OF `cdp_client.on(...)` which does not exist!
 
-## Keep Examples & Tests Up-To-Date
+## Keep Tests Up-To-Date
 
-- Make sure to read relevant examples in the `examples/` directory for context and keep them up-to-date when making changes.
-- Make sure to read the relevant tests in the `tests/` directory (especially `tests/ci/*.py`) and keep them up-to-date as well. 
+- Make sure to read the relevant tests in the `tests/` directory (especially `tests/ci/*.py`) and keep them up-to-date as well.
 - Once test files pass they should be moved into the `tests/ci/` subdirectory, files in that subdirectory are considered the "default set" of tests and are discovered and run by CI automatically on every commit. Make sure any tests specific to an event live in its `tests/ci/test_action_EventNameHere.py` file.
 - Never mock anything in tests, always use real objects!! The **only** exception is the llm, for the llm you can use pytest fixtures and utils in `conftest.py` to set up LLM responses. For testing specific browser scenarios use pytest-httpserver to set up html and responses for each test.
 - Never use real remote URLs in tests (e.g. `https://google.com` or `https://example.com`), instead use pytest-httpserver to set up a test server in a fixture that responds with the html needed for the test (see other `tests/ci` files for examples)
@@ -141,7 +140,7 @@ When making any significant changes:
 3. Then implement the changes for the new design. Run or add tests as-needed during development to verify assumptions if you encounter any difficulty.
 4. Run the full `tests/ci` suite once the changes are done. Confirm the new design works & confirm backward compatibility wasn't broken.
 5. Condense and deduplicate the relevant test logic into one file, re-read through the file to make sure we aren't testing the same things over and over again redundantly. Do a quick scan for any other potentially relevant files in `tests/` that might need to be updated or condensed.
-6. Update any relevant files in `docs/` and `examples/` and confirm they match the implementation and tests
+6. Update any relevant files in `docs/` and confirm they match the implementation and tests
 
 When doing any truly massive refactors, trend towards using simple event buses and job queues to break down systems into smaller services that each manage some isolated subcomponent of the state.
 

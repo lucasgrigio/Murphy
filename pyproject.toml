@@ -51,7 +51,6 @@ dependencies = [
     "uvicorn>=0.34.0",
 ]
 # google-api-core: only used for Google LLM APIs
-# pyperclip: only used for examples that use copy/paste
 # pyobjc: only used to get screen resolution on macOS
 # screeninfo: only used to get screen resolution on Linux/Windows
 # markdownify: used for page text content extraction for passing to LLM
@@ -64,22 +63,13 @@ dependencies = [
 aws = ["boto3>=1.38.45"]
 oci = ["oci>=2.126.4"]
 video = ["imageio[ffmpeg]>=2.37.0", "numpy>=2.3.2"]
-examples = [
-    "agentmail==0.0.59",
-    # botocore: only needed for Bedrock Claude boto3 examples/models/bedrock_claude.py
-    "botocore>=1.37.23",
-    "imgcat>=0.6.0",
-    # "stagehand-py>=0.3.6",
-    # "browserbase>=0.4.0",
-    "langchain-openai>=0.3.26",
-]
 eval = [
     "lmnr[all]==0.7.17",
     "anyio>=4.9.0",
     "psutil>=7.0.0",
     "datamodel-code-generator>=0.26.0",
 ]
-all = ["murphy[examples,aws,oci]"]
+all = ["murphy[aws,oci]"]
 
 # will prefer to use local source code checked out in ../../browser-use (if present) instead of pypi browser-use package
 # [tool.uv.sources]
@@ -129,7 +119,7 @@ skip-magic-trailing-comma = false
 
 [tool.pyright]
 typeCheckingMode = "basic"
-include = ["murphy", "browser_use", "examples", "tests"]
+include = ["murphy", "browser_use", "tests"]
 exclude = [
     ".venv/",
     ".venv*/",
@@ -143,7 +133,6 @@ exclude = [
     "tests/scripts/*",
     "tests/old/*",
     "browser_use/dom/playground/*",
-    "examples/browser_use/use-cases/onepassword.py",
     "browser_use/llm/oci_raw/*",
     "browser_use/llm/tests/test_chat_models.py",
     "browser_use/llm/tests/test_single_step.py",

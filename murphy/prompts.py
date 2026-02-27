@@ -4,7 +4,38 @@ Murphy — LLM prompt text for evaluation phases.
 Extracted from evaluate.py for maintainability.
 """
 
-from murphy.models import TestScenario, WebsiteAnalysis
+from murphy.models import PERSONA_REGISTRY, TestPersona, TestScenario, TraitVector, WebsiteAnalysis
+
+# Percentages for persona distribution in test generation
+_PERSONA_DISTRIBUTION: dict[TestPersona, tuple[int, str]] = {
+	'happy_path': (20, 'Standard user, expected flow. A skilled user who knows exactly what they want.'),
+	'confused_novice': (15, "Simulate someone who doesn't read labels, clicks wrong buttons, submits empty forms, navigates backward repeatedly."),
+	'adversarial': (15, 'Try to break things: XSS payloads, SQL injection, navigate to /admin, submit forms with whitespace, paste HTML tags.'),
+	'edge_case': (15, 'Empty submissions, extremely long inputs (500+ chars), special characters (emoji, RTL text, null bytes, unicode), double-clicking.'),
+	'explorer': (10, 'Unexpected navigation patterns — visit pages out of order, use features in unintended combinations, click decorative elements.'),
+	'impatient_user': (15, 'Click rapidly without waiting, skip required steps, submit forms immediately, navigate away mid-action, spam buttons.'),
+	'angry_user': (10, 'Rage-clicks buttons, types profanity into fields, force-navigates by typing URLs, hammers the back button.'),
+}
+
+
+def _build_persona_distribution_text() -> str:
+	"""Generate persona distribution text from registry for the test generation prompt."""
+	lines: list[str] = []
+	for persona, (pct, description) in _PERSONA_DISTRIBUTION.items():
+		entry = PERSONA_REGISTRY.get(persona)
+		if entry:
+			traits, test_type = entry
+			trait_summary = (
+				f'tech_lit={traits.technical_literacy.name}, '
+				f'patience={traits.patience.name}, '
+				f'intent={traits.intent}, '
+				f'exploration={traits.exploration.name}, '
+				f'reading={traits.reading_comprehension.name}'
+			)
+			lines.append(f'- {persona} (~{pct}%, {test_type}): {description} [Traits: {trait_summary}]')
+		else:
+			lines.append(f'- {persona} (~{pct}%): {description}')
+	return '\n'.join(lines)
 
 
 def build_analysis_prompt(
@@ -24,45 +55,20 @@ def build_analysis_prompt(
 
 	goal_block = ''
 	if goal:
-		if is_authenticated:
-			goal_block = (
-				f'\nGOAL: Focus your exploration on: {goal}\n'
-				f'- Still explore the full site, but pay extra attention to pages/features related to this goal.\n'
-				f"- Mark features related to the goal as 'core' importance.\n\n"
-			)
-		else:
-			goal_block = (
-				f'\nGOAL: Focus your exploration on: {goal}\n'
-				f'- Still explore the full site, but pay extra attention to pages/features related to this goal.\n'
-				f'- Mark features related to the goal as "core" importance.\n\n'
-			)
+		goal_block = (
+			f'\nGOAL: Focus your exploration on: {goal}\n'
+			f'- Still explore the full site, but pay extra attention to pages/features related to this goal.\n'
+			f'- Mark features related to the goal as "core" importance.\n\n'
+		)
 
 	if is_authenticated:
 		opener = f'You are already logged in to {url}. Discover what users can DO on this site.\n\n'
-		testability_line = (
-			'- Assess testability: can an authenticated browser test this? (testable / partial / untestable). '
-			'If not fully testable, explain why (third-party redirect, CAPTCHA, etc.)\n\n'
-		)
-		read_only_line = (
-			"- IMPORTANT: This is READ-ONLY exploration. Do NOT click 'Delete', 'Place Order', or any button that would permanently destroy data or cost money. "
-			"You MAY click 'Create', 'Submit', 'Send', 'Save' to explore forms and creation flows — just don't confirm irreversible actions.\n"
-		)
-		feature_name_line = "- Name each feature as a user action: 'Create AI agent', 'Search tasks', 'Upload document' — NOT 'Navigation Links' or 'Button group'\n"
-		feature_elements_line = "- For `elements`, write brief descriptions: 'Create button on agents page', 'Task name input' — NOT raw hrefs or DOM dumps\n"
-		user_flows_example = "- Identify 3-5 multi-step journeys: e.g. 'Create agent → configure settings → deploy'\n"
+		browser_type = 'an authenticated browser'
+		testability_blockers = 'third-party redirect, CAPTCHA, etc.'
 	else:
 		opener = f'Navigate to {url} and discover what users can DO on this site.{category_hint}\n\n'
-		testability_line = (
-			'- Assess testability: can an unauthenticated headless browser test this? (testable / partial / untestable). '
-			'If not fully testable, explain why (requires login, third-party redirect, CAPTCHA, etc.)\n\n'
-		)
-		read_only_line = (
-			'- IMPORTANT: This is READ-ONLY exploration. Do NOT click "Delete", "Place Order", or any button that would permanently destroy data or cost money. '
-			'You MAY click "Create", "Submit", "Send", "Save" to explore forms and creation flows — just don\'t confirm irreversible actions.\n'
-		)
-		feature_name_line = '- Name each feature as a user action: "Create AI agent", "Search tasks", "Upload document" — NOT "Navigation Links" or "Button group"\n'
-		feature_elements_line = '- For `elements`, write brief descriptions: "Create button on agents page", "Task name input" — NOT raw hrefs or DOM dumps\n'
-		user_flows_example = '- Identify 3-5 multi-step journeys: e.g. "Create agent → configure settings → deploy"\n'
+		browser_type = 'an unauthenticated headless browser'
+		testability_blockers = 'requires login, third-party redirect, CAPTCHA, etc.'
 
 	return (
 		f'{opener}'
@@ -73,25 +79,27 @@ def build_analysis_prompt(
 		f'- On each page, note what actions a user can perform (not just what elements exist)\n'
 		f'- If you see a list/table, click an item to see the detail view\n'
 		f'- Check user profile/settings pages too — those often have important features\n'
-		f'{read_only_line}'
+		f'- IMPORTANT: This is READ-ONLY exploration. Do NOT click "Delete", "Place Order", or any button that would permanently destroy data or cost money. '
+		f'You MAY click "Create", "Submit", "Send", "Save" to explore forms and creation flows — just don\'t confirm irreversible actions.\n'
 		f'- IMPORTANT: Stay on the same domain as {url}. Do NOT follow links to external sites (e.g. social media, third-party docs, partner sites). If a link goes to a different domain, note the feature but do not navigate there.\n'
 		f'- For each page, classify the page_type (homepage, landing, product, listing, detail, form, content, dashboard, auth, error, other)\n\n'
 		f'FEATURE IDENTIFICATION:\n'
 		f"- You should find at least 8-15 features for any non-trivial app. If you have fewer than 8, you haven't explored enough — go back and click more nav items.\n"
-		f'{feature_name_line}'
+		f'- Name each feature as a user action: "Create AI agent", "Search tasks", "Upload document" — NOT "Navigation Links" or "Button group"\n'
 		f"- A feature = one thing a user can accomplish. If it takes multiple steps, that's still one feature.\n"
-		f'{feature_elements_line}'
+		f'- For `elements`, write brief descriptions: "Create button on agents page", "Task name input" — NOT raw hrefs or DOM dumps\n'
 		f'- For `page_url`, use the page where the feature is primarily accessed\n'
 		f"- Skip generic navigation (header links, footer links, breadcrumbs) — those aren't features\n"
 		f'- Skip auth-related elements (login/logout buttons)\n'
 		f'- Category: navigation, search, forms, content_display, filtering_sorting, media, authentication, ecommerce, social, other\n'
-		f'{testability_line}'
+		f'- Assess testability: can {browser_type} test this? (testable / partial / untestable). '
+		f'If not fully testable, explain why ({testability_blockers})\n\n'
 		f'IMPORTANCE:\n'
 		f'- core: primary product functionality (the reason the site exists)\n'
 		f'- secondary: useful but not the main purpose\n'
 		f'- peripheral: only if truly notable (skip otherwise)\n\n'
 		f'USER FLOWS:\n'
-		f'{user_flows_example}'
+		f'- Identify 3-5 multi-step journeys: e.g. "Create agent → configure settings → deploy"\n'
 		f'- Each flow should describe a complete user goal, not a single click\n'
 	)
 
@@ -139,14 +147,10 @@ TESTABLE FEATURES AVAILABLE:
 - Untestable (SKIP): {', '.join(f.name for f in features_by_testability['untestable']) or 'none'}
 
 MANDATORY PERSONA DISTRIBUTION (for {max_tests} tests):
-Each test MUST have a test_persona field. Distribute across these personas:
-- happy_path (~20%): Standard user, expected flow. A skilled user who knows exactly what they want.
-- confused_novice (~15%): Simulate someone who doesn't read labels, clicks the wrong button, submits a form without filling it, navigates backward repeatedly, searches for something nonsensical, types a URL into a search box.
-- adversarial (~15%): Try to break things: type "<script>alert(1)</script>" in search, enter SQL in form fields ("'; DROP TABLE users;--"), navigate to /admin or /api/debug, submit forms with only whitespace, paste HTML tags into text inputs.
-- edge_case (~15%): Empty form submissions, extremely long inputs (500+ chars), special characters (emoji 🎉, RTL text مرحبا, null bytes, unicode snowman ☃), double-clicking buttons, using browser back during multi-step flows.
-- explorer (~10%): Unexpected navigation patterns — visit pages in unusual order, use features in unintended combinations, click things that look decorative, try to use the site in ways the designer didn't intend.
-- impatient_user (~15%): Click rapidly without waiting for pages to load, skip required steps in multi-step flows, try to submit forms immediately, navigate away mid-action, spam the search button.
-- angry_user (~10%): Rage-clicks buttons multiple times, types frustration/profanity into form fields ("THIS IS BROKEN!!!"), force-navigates by typing URLs directly, hammers the back button.
+Each test MUST have a test_persona field. Distribute across these personas.
+Each persona has a trait vector that explains WHY it tests different things:
+
+{_build_persona_distribution_text()}
 
 PERSONA-SPECIFIC SUCCESS CRITERIA GUIDANCE:
 - happy_path (UX): "The agent completes the expected flow, receives clear confirmation feedback (toast, redirect, page update, success message), and arrives at the correct page/state"
@@ -273,6 +277,56 @@ def build_plan_synthesis_prompt(
 	)
 
 
+def _render_trait_vector(traits: TraitVector) -> str:
+	"""Render a trait vector as a compact structured block."""
+	return (
+		f'  technical_literacy: {traits.technical_literacy.name}\n'
+		f'  patience: {traits.patience.name}\n'
+		f'  intent: {traits.intent}\n'
+		f'  exploration: {traits.exploration.name}\n'
+		f'  reading_comprehension: {traits.reading_comprehension.name}'
+	)
+
+
+# Character descriptions for vivid role-playing
+_PERSONA_DESCRIPTIONS: dict[TestPersona, str] = {
+	'happy_path': 'A skilled, patient user who knows exactly what they want. Follows the expected flow directly and efficiently.',
+	'confused_novice': "A first-time user who doesn't read labels carefully, clicks wrong buttons, submits forms without filling them, and navigates backward repeatedly. Needs the site to actively guide them.",
+	'adversarial': 'A security tester probing for vulnerabilities. Types XSS payloads, SQL injection fragments, navigates to /admin, and tries to bypass validation.',
+	'edge_case': 'A methodical tester exercising boundary conditions: empty fields, max-length strings, special characters (emoji, RTL text, null bytes), double-clicks.',
+	'explorer': 'A curious user who takes unexpected paths: visits pages out of order, uses features in unintended combinations, clicks decorative elements.',
+	'impatient_user': 'A rushed user who clicks rapidly without waiting, skips required steps, submits forms immediately, navigates away mid-action.',
+	'angry_user': 'A frustrated user who rage-clicks buttons, types profanity into fields, hammers the back button, and force-navigates by typing URLs.',
+}
+
+
+def _render_persona_for_execution(persona: TestPersona) -> str:
+	"""Produce both character description and trait breakdown for the execution prompt."""
+	entry = PERSONA_REGISTRY.get(persona)
+	description = _PERSONA_DESCRIPTIONS.get(persona, '')
+
+	lines = [f'Your persona: **{persona}**']
+	if description:
+		lines.append(f'Character: {description}')
+	if entry:
+		traits, test_type = entry
+		lines.append(f'Test type: {test_type}')
+		lines.append('Trait profile:')
+		lines.append(_render_trait_vector(traits))
+		# Add trait-specific behavioral instructions
+		if traits.technical_literacy == traits.technical_literacy.low:
+			lines.append('→ You are unfamiliar with UI conventions. Do not assume icons or color cues are self-explanatory.')
+		if traits.patience == traits.patience.low:
+			lines.append('→ You have zero patience. If something takes more than 2 seconds with no feedback, treat it as broken.')
+		if traits.reading_comprehension == traits.reading_comprehension.low:
+			lines.append('→ You do not read body text. Only bold labels, color coding, icons, and position-based cues register.')
+		if traits.exploration == traits.exploration.high:
+			lines.append('→ You actively wander off the expected path. Try unexpected navigation, unusual feature combinations.')
+		if traits.intent == 'adversarial':
+			lines.append('→ You are actively trying to break things. Use XSS payloads, SQL fragments, probe hidden endpoints.')
+	return '\n'.join(lines)
+
+
 def build_execution_prompt(
 	global_task: str,
 	scenario: TestScenario,
@@ -297,14 +351,7 @@ def build_execution_prompt(
 		f'- DISABLED ELEMENTS: If a button is disabled, do NOT retry it. Analyze why (missing required fields, prerequisite step) and address the root cause, or skip and report.\n'
 		f'- EMPTY RESULTS: If search returns 0 results, the content does not exist. Do NOT repeat the search or scroll hoping it appears. Try alternative terms or navigation.\n\n'
 		f'PERSONA BEHAVIOR:\n'
-		f'- happy_path: Complete the task directly and efficiently. Note whether you receive clear confirmation feedback (toast, redirect, page update) after key actions.\n'
-		f'- confused_novice: Deliberately make mistakes — click the wrong button first, misread a label, start filling the wrong form. Then try to recover. The test is about whether the site HELPS YOU UNDERSTAND what went wrong. If something fails silently with no feedback, that is the bug.\n'
-		f'- adversarial: Attempt to inject malicious input, bypass validation, or exploit the UI. Be creative with XSS payloads, SQL fragments, oversized inputs.\n'
-		f'- edge_case: Test boundary conditions — empty fields, max-length strings, special characters, unicode. Submit forms in unusual states.\n'
-		f'- explorer: Take unexpected paths — use browser back/forward, navigate via URL bar, click breadcrumbs mid-flow, open links in unexpected order. The test is about whether the site keeps you ORIENTED — clear page titles, breadcrumbs, "no results" feedback. Dead ends with no explanation are the bug.\n'
-		f'- impatient_user: Click buttons multiple times rapidly, submit before page loads, interrupt transitions, skip optional steps. The test is about whether the site COMMUNICATES what is happening — loading states, queued actions, "please wait" messages. Silent handling with no visible feedback is the bug.\n'
-		f'- angry_user: Type aggressively, use profanity in text fields, rage-click buttons, rapidly navigate between pages.\n'
-		f'Your persona for this test: **{scenario.test_persona}**. Act accordingly.\n\n'
+		f'{_render_persona_for_execution(scenario.test_persona)}\n\n'
 		f'EDGE CASE / ADVERSARIAL TESTING:\n'
 		f'- For edge_case or adversarial tests: ATTEMPT the action even if controls appear disabled. Click the submit/publish button, try form submission — observe what happens.\n'
 		f'- Do NOT just search for error messages or describe what you see. Actually interact with the form: leave fields empty, then click submit. Report the observed behavior (disabled button, inline validation, error toast, silent rejection, etc.).\n'

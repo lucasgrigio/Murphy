@@ -41,7 +41,8 @@ def main() -> int:
 	parser.add_argument('--features', help='Path to existing features markdown (skips analysis, goes to test generation)')
 	parser.add_argument('--plan', help='Path to existing YAML test plan (skips analysis + test generation)')
 	parser.add_argument('--max-tests', type=int, default=8, help='Max test scenarios (default: 8)')
-	parser.add_argument('--model', default='gpt-4o', help='OpenAI model (default: gpt-4o)')
+	parser.add_argument('--model', default='gpt-5-mini', help='OpenAI model for agent tasks (default: gpt-5-mini)')
+	parser.add_argument('--judge-model', default='gpt-4o', help='OpenAI model for judging verdicts (default: gpt-4o)')
 	parser.add_argument('--output-dir', default='./murphy/output', help='Output directory for reports')
 	parser.add_argument('--category', help='Site category hint (ecommerce, saas, content, social)')
 	parser.add_argument('--ui', action='store_true', help='Launch interactive web UI instead of running in terminal')
@@ -52,9 +53,9 @@ def main() -> int:
 	parser.add_argument(
 		'--parallel',
 		type=int,
-		default=1,
+		default=3,
 		metavar='N',
-		help='Number of tests to run concurrently (default: 1, sequential)',
+		help='Number of tests to run concurrently (default: 3)',
 	)
 	args = parser.parse_args()
 
@@ -90,6 +91,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 	fixture_paths = ensure_dummy_fixture_files()
 
 	llm = ChatOpenAI(model=args.model)
+	judge_llm = ChatOpenAI(model=args.judge_model) if args.judge_model != args.model else None
 	output_dir = Path(args.output_dir)
 	output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -104,6 +106,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 			browser_profile=BrowserProfile(
 				user_data_dir=BROWSER_PROFILE_DIR,
 				keep_alive=True,
+				headless=False,
 				dom_highlight_elements=not args.no_highlights,
 			)
 		)
@@ -229,6 +232,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 				max_steps=args.max_steps,
 				save_callback=_on_test_complete,
 				max_concurrent=args.parallel,
+				judge_llm=judge_llm,
 			)
 			if analysis:
 				write_reports_and_print(args.url, analysis, results, output_dir)
@@ -252,6 +256,8 @@ async def _async_main(args: argparse.Namespace) -> None:
 				fixture_paths=fixture_paths,
 				max_steps=args.max_steps,
 				save_callback=_on_test_complete,
+				max_concurrent=args.parallel,
+				judge_llm=judge_llm,
 			)
 
 		state = ServerState(

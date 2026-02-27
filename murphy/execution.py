@@ -22,6 +22,9 @@ from murphy.models import (
 from murphy.prompts import build_execution_prompt
 from murphy.summary import classify_failure
 
+# Hard cap on parallel browser sessions to avoid resource exhaustion
+MAX_PARALLEL_SESSIONS = 5
+
 # ─── Structured output parsing ────────────────────────────────────────────────
 
 
@@ -128,6 +131,7 @@ async def _execute_single_test(
 	max_steps: int,
 	index: int,
 	total: int,
+	judge_llm: ChatOpenAI | None = None,
 ) -> TestResult:
 	"""Execute one test scenario and return its TestResult.
 
@@ -171,18 +175,18 @@ async def _execute_single_test(
 		verdict = _parse_structured_output(history, ScenarioExecutionVerdict)
 
 		# Also run murphy judge for authoritative pass/fail
-		judgement = await murphy_judge(history, scenario, llm, start_url=url)
+		judgement = await murphy_judge(history, scenario, llm, start_url=url, judge_llm=judge_llm)
 
 		# Merge: use judge verdict as authoritative, but overlay agent's evaluations
-		success = judgement['verdict']
+		success = judgement.verdict
 		status = 'PASS' if success else 'FAIL'
 		print(f'  Result: {status} ({history.total_duration_seconds():.1f}s)')
 
 		# Prefer judge evaluations (third-party observer), fall back to agent's
-		process_eval = judgement.get('process_evaluation', '') or (verdict.process_evaluation if verdict else '')
-		logical_eval = judgement.get('logical_evaluation', '') or (verdict.logical_evaluation if verdict else '')
-		usability_eval = judgement.get('usability_evaluation', '') or (verdict.usability_evaluation if verdict else '')
-		reason = judgement.get('failure_reason', '') or (verdict.reason if verdict else '')
+		process_eval = judgement.process_evaluation or (verdict.process_evaluation if verdict else '')
+		logical_eval = judgement.logical_evaluation or (verdict.logical_evaluation if verdict else '')
+		usability_eval = judgement.usability_evaluation or (verdict.usability_evaluation if verdict else '')
+		reason = judgement.failure_reason or (verdict.reason if verdict else '')
 		validation_evidence = (verdict.validation_evidence if verdict else '') or ''
 
 		all_actions = history.model_actions()
@@ -216,6 +220,8 @@ async def _execute_single_test(
 			usability_evaluation=usability_eval,
 			reason=reason,
 			validation_evidence=validation_evidence,
+			feedback_quality=judgement.feedback_quality,
+			trait_evaluations=judgement.trait_evaluations,
 		)
 		test_result.failure_category = classify_failure(test_result)
 	except Exception as exc:
@@ -353,6 +359,7 @@ async def execute_tests(
 	llm: ChatOpenAI,
 	progress_state: Any = None,
 	save_callback: Callable[[list[TestResult]], None] | None = None,
+	judge_llm: ChatOpenAI | None = None,
 ) -> list[TestResult]:
 	"""Execute tests without a pre-existing session (creates its own)."""
 	from browser_use.browser.profile import BrowserProfile
@@ -382,12 +389,13 @@ async def execute_tests(
 				)
 				history = await agent.run(max_steps=15)
 
-				judgement = await murphy_judge(history, scenario, llm, start_url=url)
-				success = judgement['verdict']
+				judgement = await murphy_judge(history, scenario, llm, start_url=url, judge_llm=judge_llm)
+				success = judgement.verdict
 				status = 'PASS' if success else 'FAIL'
 				print(f'  Result: {status} ({history.total_duration_seconds():.1f}s)')
 
 				all_actions = history.model_actions()
+
 				test_result = TestResult(
 					scenario=scenario,
 					success=success,
@@ -398,10 +406,12 @@ async def execute_tests(
 					pages_visited=_extract_pages_visited(all_actions, url),
 					screenshot_paths=[p for p in history.screenshot_paths() if p],
 					form_fills=_extract_form_fills(all_actions),
-					process_evaluation=judgement.get('process_evaluation', ''),
-					logical_evaluation=judgement.get('logical_evaluation', ''),
-					usability_evaluation=judgement.get('usability_evaluation', ''),
-					reason=judgement.get('failure_reason', ''),
+					process_evaluation=judgement.process_evaluation,
+					logical_evaluation=judgement.logical_evaluation,
+					usability_evaluation=judgement.usability_evaluation,
+					reason=judgement.failure_reason,
+					feedback_quality=judgement.feedback_quality,
+					trait_evaluations=judgement.trait_evaluations,
 				)
 				test_result.failure_category = classify_failure(test_result)
 			except Exception as exc:
@@ -454,7 +464,8 @@ async def execute_tests_with_session(
 	fixture_paths: list[Path] | None = None,
 	max_steps: int = 15,
 	save_callback: Callable[[list[TestResult]], None] | None = None,
-	max_concurrent: int = 1,
+	max_concurrent: int = 3,
+	judge_llm: ChatOpenAI | None = None,
 ) -> list[TestResult]:
 	"""Phase 3 execution reusing an existing browser session.
 
@@ -484,6 +495,7 @@ async def execute_tests_with_session(
 				max_steps=max_steps,
 				index=i,
 				total=total,
+				judge_llm=judge_llm,
 			)
 			results.append(test_result)
 
@@ -496,9 +508,12 @@ async def execute_tests_with_session(
 		return results
 
 	# ── Parallel path ──
+	# Clamp: no more sessions than scenarios, and enforce hard cap
+	effective_concurrent = min(max_concurrent, total, MAX_PARALLEL_SESSIONS)
+
 	highlight = browser_session.browser_profile.dom_highlight_elements if browser_session.browser_profile else True
 	sessions = await _create_session_pool(
-		pool_size=max_concurrent,
+		pool_size=effective_concurrent,
 		original_session=browser_session,
 		highlight_elements=highlight,
 	)
@@ -506,11 +521,14 @@ async def execute_tests_with_session(
 	try:
 		results_slots: list[TestResult | None] = [None] * total
 		report_lock = asyncio.Lock()
-		sem = asyncio.Semaphore(max_concurrent)
+		# Use a queue so each concurrent test gets an exclusive session
+		session_queue: asyncio.Queue[BrowserSession] = asyncio.Queue()
+		for s in sessions:
+			session_queue.put_nowait(s)
 
 		async def _run_one(index_0: int, scenario: TestScenario) -> None:
-			async with sem:
-				session = sessions[index_0 % len(sessions)]
+			session = await session_queue.get()
+			try:
 				if progress_state is not None:
 					progress_state.current_test = index_0 + 1
 
@@ -524,6 +542,7 @@ async def execute_tests_with_session(
 					max_steps=max_steps,
 					index=index_0 + 1,
 					total=total,
+					judge_llm=judge_llm,
 				)
 				results_slots[index_0] = result
 
@@ -534,6 +553,8 @@ async def execute_tests_with_session(
 							save_callback(completed)
 						except Exception as e:
 							print(f'  ⚠️  save_callback failed: {e}')
+			finally:
+				session_queue.put_nowait(session)
 
 		async with asyncio.TaskGroup() as tg:
 			for i, scenario in enumerate(test_plan.scenarios):

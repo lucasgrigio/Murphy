@@ -516,10 +516,10 @@ def _render_results_html(
 				body_parts.append(f'<div class="detail"><strong>Pages visited:</strong> {pages_html}</div>')
 
 			if r.judgement:
-				reasoning = r.judgement.get('reasoning', '')
+				reasoning = r.judgement.reasoning
 				if reasoning:
 					body_parts.append(f'<div class="detail"><strong>Reasoning:</strong> {_e(reasoning)}</div>')
-				failure_reason = r.reason or r.judgement.get('failure_reason', '')
+				failure_reason = r.reason or r.judgement.failure_reason
 				if failure_reason:
 					body_parts.append(f'<div class="detail"><strong>Failure reason:</strong> {_e(failure_reason)}</div>')
 

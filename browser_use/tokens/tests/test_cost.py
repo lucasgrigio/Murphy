@@ -11,34 +11,8 @@ from browser_use.llm import ChatGoogle, ChatOpenAI
 from browser_use.llm.messages import AssistantMessage, SystemMessage, UserMessage
 from browser_use.tokens.service import TokenCost
 
-# Optional OCI import
-try:
-	from examples.models.oci_models import meta_llm
-
-	OCI_MODELS_AVAILABLE = True
-except ImportError:
-	meta_llm = None
-	OCI_MODELS_AVAILABLE = False
-
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-
-def get_oci_model_if_available():
-	"""Create OCI model for testing if credentials are available."""
-	if not OCI_MODELS_AVAILABLE:
-		return None
-
-	# Try to create OCI model with mock/test configuration
-	# These values should be replaced with real ones if testing with actual OCI
-	try:
-		# get any of the llm xai_llm or cohere_llm
-		return meta_llm
-
-	except Exception as e:
-		logger.info(f'OCI model not available for testing: {e}')
-		return None
 
 
 async def test_iterative_country_generation():
@@ -57,14 +31,6 @@ Only output the country name, no numbers, no punctuation, just the name."""
 	models = []
 	models.append(ChatOpenAI(model='gpt-4.1'))  # Commented out - requires OPENAI_API_KEY
 	models.append(ChatGoogle(model='gemini-2.0-flash-exp'))
-
-	# Add OCI model if available
-	oci_model = get_oci_model_if_available()
-	if oci_model:
-		models.append(oci_model)
-		print(f'✅ OCI model added to test: {oci_model.name}')
-	else:
-		print('ℹ️  OCI model not available (install with pip install browser-use[oci] and configure credentials)')
 
 	print('\n🌍 Iterative Country Generation Test')
 	print('=' * 80)

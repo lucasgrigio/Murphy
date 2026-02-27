@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from murphy.models import EvaluationReport, ExecutiveSummary, TestResult, WebsiteAnalysis
+from murphy.models import PERSONA_REGISTRY, EvaluationReport, ExecutiveSummary, TestResult, WebsiteAnalysis
 
 
 def copy_screenshots_to_output(report: EvaluationReport, output_dir: Path, *, clear_previous: bool = True) -> None:
@@ -27,13 +27,24 @@ def copy_screenshots_to_output(report: EvaluationReport, output_dir: Path, *, cl
 		valid_paths = [p for p in result.screenshot_paths if p]
 		if not valid_paths:
 			continue
-		# Already copied on a previous incremental call — skip
+
+		# Stash original source paths (temp dir) before we ever rewrite them.
+		# On subsequent calls, valid_paths may point into the output dir (rewritten
+		# on a previous incremental call) but clear_previous may have deleted the
+		# files — we need the originals to re-copy.
+		if not hasattr(result, '_original_screenshot_paths'):
+			result._original_screenshot_paths = list(valid_paths)  # type: ignore[attr-defined]
+		source_paths: list[str] = getattr(result, '_original_screenshot_paths', valid_paths)
+
+		# Already copied on a previous incremental call — skip only if files still exist
 		if all(str(Path(p).resolve()).startswith(str(screenshots_dir_resolved)) for p in valid_paths):
-			continue
+			if all(Path(p).exists() for p in valid_paths):
+				continue
+
 		test_dir = screenshots_dir / f'test_{i:02d}_{_slugify(result.scenario.name)}'
 		test_dir.mkdir(parents=True, exist_ok=True)
 		copied_paths: list[str] = []
-		for src_path_str in valid_paths:
+		for src_path_str in source_paths:
 			src = Path(src_path_str).resolve()
 			dst = (test_dir / Path(src_path_str).name).resolve()
 			if src.exists() and src != dst:
@@ -242,6 +253,24 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 	if r.usability_evaluation:
 		lines += ['**Usability evaluation:**', f'{r.usability_evaluation}', '']
 
+	# ── Trait evaluations ──
+	if r.trait_evaluations:
+		lines += ['**Trait evaluations:**']
+		for trait_name, assessment in r.trait_evaluations.items():
+			lines.append(f'- **{trait_name}**: {assessment}')
+		lines.append('')
+
+	# ── Feedback quality ──
+	if r.feedback_quality:
+		fq = r.feedback_quality
+		score = sum([fq.response_present, fq.response_timely, fq.response_clear, fq.response_actionable])
+		lines += [
+			'**Feedback quality:**',
+			f'- Present: {"Yes" if fq.response_present else "No"} | Timely: {"Yes" if fq.response_timely else "No"} | Clear: {"Yes" if fq.response_clear else "No"} | Actionable: {"Yes" if fq.response_actionable else "No"}',
+			f'- Type: {fq.feedback_type} | Score: {score}/4',
+			'',
+		]
+
 	# ── Pages visited ──
 	if r.pages_visited:
 		lines += ['**Pages visited:**']
@@ -254,8 +283,8 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 		judge_reasoning = ''
 		if r.judgement:
 			if not failure_reason:
-				failure_reason = r.judgement.get('failure_reason', '')
-			judge_reasoning = r.judgement.get('reasoning', '')
+				failure_reason = r.judgement.failure_reason
+			judge_reasoning = r.judgement.reasoning
 
 		if failure_reason:
 			lines += [
@@ -377,6 +406,27 @@ def write_markdown_report(report: EvaluationReport, output_dir: Path) -> Path:
 				label = persona.replace('_', ' ').title()
 				lines.append(f'| {label} | {d["passed"]} | {d["failed"]} |')
 
+	# ── Feedback Quality Index ────────────────────────────────────────────────
+	fq_results = [r for r in report.results if r.feedback_quality]
+	if fq_results:
+		lines += [
+			'',
+			'### Feedback Quality Index',
+			'',
+			'| Test | Persona | Present | Timely | Clear | Actionable | Type | Score |',
+			'|------|---------|---------|--------|-------|------------|------|-------|',
+		]
+		for r in fq_results:
+			fq = r.feedback_quality
+			assert fq is not None
+			score = sum([fq.response_present, fq.response_timely, fq.response_clear, fq.response_actionable])
+			yes_no = lambda b: 'Yes' if b else 'No'
+			persona_label = r.scenario.test_persona.replace('_', ' ').title()
+			lines.append(
+				f'| {r.scenario.name[:40]} | {persona_label} | {yes_no(fq.response_present)} | {yes_no(fq.response_timely)} | '
+				f'{yes_no(fq.response_clear)} | {yes_no(fq.response_actionable)} | {fq.feedback_type} | {score}/4 |'
+			)
+
 	lines += ['', '---', '']
 
 	# ── Executive Summary ─────────────────────────────────────────────────────
@@ -481,29 +531,31 @@ def write_markdown_report(report: EvaluationReport, output_dir: Path) -> Path:
 
 def _suggest_fix(result: TestResult) -> str:
 	"""Generate an actionable suggestion based on the failure context and persona."""
-	judgement = result.judgement or {}
-	failure_reason = judgement.get('failure_reason', '').lower()
-	failure_reason_raw = judgement.get('failure_reason', '')
-	reasoning = judgement.get('reasoning', '').lower()
+	judgement = result.judgement
+	failure_reason = (judgement.failure_reason if judgement else '').lower()
+	failure_reason_raw = judgement.failure_reason if judgement else ''
+	reasoning = (judgement.reasoning if judgement else '').lower()
 	scenario = result.scenario
 	persona = scenario.test_persona
 
 	# Captcha blocked
-	if judgement.get('reached_captcha'):
+	if judgement and judgement.reached_captcha:
 		return (
 			'The test was blocked by a CAPTCHA. This is expected for automated testing. '
 			'Consider whitelisting the test environment or using a CAPTCHA-solving service.'
 		)
 
 	# Impossible task
-	if judgement.get('impossible_task'):
+	if judgement and judgement.impossible_task:
 		return (
 			'This test scenario may not be possible on the current version of the website. '
 			'Review whether the feature being tested actually exists and is accessible.'
 		)
 
-	# Persona-specific suggestions for adversarial / edge_case / angry_user
-	if persona in ('adversarial', 'edge_case', 'angry_user'):
+	# Test-type-specific suggestions for security / boundary personas
+	persona_entry = PERSONA_REGISTRY.get(persona)
+	test_type = persona_entry[1] if persona_entry else 'ux'
+	if test_type in ('security', 'boundary'):
 		# Check if the site actually handled it fine but the test expected explicit feedback
 		silent_handling_signals = [
 			'no error',

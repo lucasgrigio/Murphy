@@ -27,8 +27,9 @@ def classify_failure(result: TestResult) -> Literal['website_issue', 'test_limit
 	# Crashed tests: success=None with no judgement → test infrastructure failure
 	if result.success is None:
 		return 'test_limitation'
-	judgement = result.judgement or {}
-	return judgement.get('failure_category')
+	if result.judgement is None:
+		return 'test_limitation'
+	return result.judgement.failure_category
 
 
 def build_summary(results: list[TestResult]) -> ReportSummary:
@@ -75,11 +76,22 @@ async def generate_executive_summary(
 		persona = r.scenario.test_persona.replace('_', ' ')
 		reason = ''
 		if not r.success:
-			reason = r.reason or (r.judgement or {}).get('failure_reason', '')
+			reason = r.reason or (r.judgement.failure_reason if r.judgement else '')
 			category = r.failure_category or 'unknown'
 			reason = f' | Category: {category} | Reason: {reason}'
+		# Include trait evaluations if available
+		trait_note = ''
+		if r.trait_evaluations:
+			trait_parts = [f'{k}: {v}' for k, v in r.trait_evaluations.items()]
+			trait_note = f' | Trait evals: {"; ".join(trait_parts)}'
+		# Include feedback quality if available
+		fq_note = ''
+		if r.feedback_quality:
+			fq = r.feedback_quality
+			score = sum([fq.response_present, fq.response_timely, fq.response_clear, fq.response_actionable])
+			fq_note = f' | Feedback: {score}/4 ({fq.feedback_type})'
 		results_summary_parts.append(
-			f'{i}. [{status}] {r.scenario.name} (persona: {persona}, priority: {r.scenario.priority}){reason}'
+			f'{i}. [{status}] {r.scenario.name} (persona: {persona}, priority: {r.scenario.priority}){reason}{fq_note}{trait_note}'
 		)
 
 	prompt = f"""Analyze these website evaluation results and produce an executive summary.
@@ -97,7 +109,7 @@ Individual results:
 
 Provide:
 1. overall_assessment: 1-2 sentences on the site's overall quality based on test results
-2. key_findings: 3-5 specific UX findings ranked by severity (most severe first). Each finding should reference specific test results.
+2. key_findings: 3-5 specific UX findings ranked by severity (most severe first). Each finding should reference specific test results. When trait evaluations are available, reference the specific trait dimension that failed (e.g., "Users with low reading comprehension will miss the error message because it's plain body text"). When feedback quality scores are available, reference specific gaps (e.g., "3 of 8 tests had no actionable feedback").
 3. recommended_actions: Top 3 concrete actions the site team should take to improve UX
 
 Be specific and actionable. Reference actual test names and outcomes. Do NOT use generic statements."""

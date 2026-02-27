@@ -9,13 +9,81 @@ Pre-processes raw action data into clean, human-readable evidence so the LLM jud
 can't miss navigation proof buried in nested JSON.
 """
 
-from typing import Literal
-
-from pydantic import BaseModel
-
 from browser_use.agent.views import AgentHistoryList
 from browser_use.llm import ChatOpenAI, SystemMessage, UserMessage
-from murphy.models import TestScenario
+from browser_use.llm.messages import ContentPartImageParam, ContentPartTextParam, ImageURL
+from murphy.models import (
+	PERSONA_REGISTRY,
+	JudgeVerdict,
+	TestScenario,
+	TestType,
+	TraitLevel,
+	TraitVector,
+)
+
+TRAIT_JUDGE_QUESTIONS: dict[str, dict[TraitLevel, str]] = {
+	'technical_literacy': {
+		TraitLevel.low: 'Would a user unfamiliar with UI conventions understand what happened? Labels, icons, affordances must be self-explanatory without domain knowledge. This user needs explicit text, not just icons or color cues.',
+		TraitLevel.medium: 'Were standard UI patterns followed? Would a typical web user understand the interaction?',
+		TraitLevel.high: 'Were expert-level controls available and efficient?',
+	},
+	'patience': {
+		TraitLevel.low: 'Did the site communicate state IMMEDIATELY? Loading indicators, progress bars, "please wait" messages? This user interprets 2+ seconds of silence as broken. Silent deduplication with no feedback = FAIL.',
+		TraitLevel.medium: 'Did the site provide timely feedback within reasonable expectations?',
+		TraitLevel.high: 'Did the site complete the task correctly, regardless of timing?',
+	},
+	'reading_comprehension': {
+		TraitLevel.low: 'Was critical information conveyed through visual hierarchy: bold labels, color coding, icons, position-based cues? Error messages in body text are invisible to this user.',
+		TraitLevel.medium: 'Were important messages prominent and scannable?',
+		TraitLevel.high: 'Was detailed information available for thorough readers?',
+	},
+	'exploration': {
+		TraitLevel.high: 'Did the site provide ORIENTATION at every step? Breadcrumbs, page titles, "no results" messages? Dead ends with no feedback = FAIL.',
+		TraitLevel.medium: 'Did the site handle minor path deviations gracefully?',
+		TraitLevel.low: 'Did the expected path work without requiring exploration?',
+	},
+}
+
+TEST_TYPE_RULES: dict[TestType, str] = {
+	'ux': 'Silent handling with no visible feedback is a FAIL. The user must understand what happened.',
+	'security': 'Silent sanitization is CORRECT behavior. Only fail on crash, data leak, or code execution.',
+	'boundary': 'Graceful degradation (even silent) is a PASS. Only fail on unhandled exception or corrupted state.',
+}
+
+
+def build_judge_trait_context(persona: str, traits: TraitVector, test_type: TestType) -> str:
+	"""Assemble per-trait evaluation questions from the trait vector + test_type."""
+	lines: list[str] = []
+	lines.append(f'## Persona: {persona}')
+	lines.append(f'## Test type: {test_type}')
+	lines.append(f'## Test type rule: {TEST_TYPE_RULES[test_type]}')
+	lines.append('')
+	lines.append('## Per-trait evaluation questions (evaluate each independently):')
+	lines.append('')
+
+	trait_fields = {
+		'technical_literacy': traits.technical_literacy,
+		'patience': traits.patience,
+		'reading_comprehension': traits.reading_comprehension,
+		'exploration': traits.exploration,
+	}
+	for trait_name, level in trait_fields.items():
+		assert isinstance(level, TraitLevel)
+		question = TRAIT_JUDGE_QUESTIONS[trait_name][level]
+		lines.append(f'- **{trait_name}** ({level.name}): {question}')
+
+	# Intent doesn't use TraitLevel — add it directly
+	intent = traits.intent
+	if intent == 'adversarial':
+		lines.append(f'- **intent** ({intent}): Is the site RESISTING the attack? Input sanitized or rejected = PASS. Script executed, debug info leaked, raw SQL error = FAIL.')
+	elif intent == 'exploratory':
+		lines.append(f'- **intent** ({intent}): Does the site handle unexpected usage gracefully? Non-crash non-leak behavior = PASS.')
+	else:
+		lines.append(f'- **intent** ({intent}): Did the site complete the intended task successfully?')
+
+	lines.append('')
+	return '\n'.join(lines)
+
 
 JUDGE_SYSTEM_PROMPT = """\
 You are a QA judge evaluating whether a browser automation agent successfully completed a test scenario.
@@ -24,11 +92,12 @@ You judge success based on OBSERVABLE ACTIONS, not on what the agent said or rep
 
 ## How to read the evidence
 
-You will receive three evidence sections:
+You will receive four evidence sections:
 
 1. **Navigation Evidence** — a pre-extracted summary of every click, navigation, and form interaction the agent performed, plus the actual browser URLs reached. This is your PRIMARY evidence.
-2. **Full Step Trace** — the complete step-by-step action log with results and errors.
-3. **Agent's Final Response** — what the agent said at the end. This is supplementary only.
+2. **Screenshots** — the last few browser screenshots taken during test execution. Use these to verify VISUAL feedback: toasts, error messages, state changes, loading indicators, disabled controls, inline validation. Screenshots are critical for judging UX feedback quality — the action trace alone cannot tell you whether a toast appeared or a button was visually disabled.
+3. **Full Step Trace** — the complete step-by-step action log with results and errors.
+4. **Agent's Final Response** — what the agent said at the end. This is supplementary only.
 
 ## Evaluation rules
 
@@ -39,21 +108,20 @@ You will receive three evidence sections:
 - The verdict should be TRUE if the actions and URLs match the success criteria, regardless of what the agent said or did not say in its final response.
 - NEVER require the agent to "verify", "confirm", "report", or "provide evidence of" anything. The action trace is the evidence.
 
-## Persona-specific evaluation
+## Trait-based evaluation
 
-The test has a **Test Persona** that determines HOW you evaluate success:
+Each test has a **persona** with a **trait vector** (5 dimensions) and a **test type** (ux/security/boundary). The user prompt includes per-trait evaluation questions and test-type rules assembled from the persona's traits. Use those to structure your evaluation.
 
-- **happy_path** (UX persona): Judge whether the expected flow completed successfully. Clear feedback (confirmation, toast, redirect, page change) must be visible after key actions. Standard pass/fail.
-- **confused_novice** (UX persona): Judge whether the website PROVIDED CLEAR FEEDBACK for the confused behavior. A helpful error message, redirect, visual cue, or gentle correction = PASS. A disabled button with no explanation, silent rejection with no feedback, blank page, or crash = FAIL. The confused user NEEDS to understand what went wrong — silent handling is NOT sufficient.
-- **adversarial** (Security persona): Judge whether the website RESISTED the attack. Input sanitized or rejected = PASS. The site accepting adversarial input WITHOUT crashing, leaking data, or executing injected code = PASS (silent sanitization is correct behavior). Script executed, debug info leaked, raw SQL error shown, or stack trace exposed = FAIL. Do NOT require the site to show a specific error message for malicious input — the absence of a negative outcome IS a pass.
-- **edge_case** (Security persona): Judge whether the website handled unusual input without breaking. Validation error shown, input truncated, or graceful fallback = PASS. Unhandled exception, corrupted display, or crash = FAIL.
-- **explorer** (UX persona): Judge whether the website PROVIDED ORIENTATION at every step. Breadcrumbs, page titles, clear navigation state, 'no results' messages, or redirect with explanation = PASS. Dead ends with no feedback, blank pages, or silent failures = FAIL.
-- **impatient_user** (UX persona): Judge whether the website COMMUNICATED state clearly during rapid interactions. Loading indicators, queued-action feedback, or 'please wait' signals = PASS. Silent drops, no indication of whether the action worked, or invisible deduplication with no feedback = FAIL.
-- **angry_user** (Security persona): Judge whether the website absorbed hostile interaction gracefully. No crash from rage-clicks, profanity in inputs doesn't cause errors, rapid navigation doesn't break state = PASS. Do NOT expect profanity detection or specific error messages for hostile input — if the site simply accepts the input and continues functioning normally, that IS a pass.
+Evaluate each trait dimension independently, then synthesize into a verdict. A test can fail on one trait dimension but pass on others — report all of them in `trait_evaluations`.
 
-CRITICAL — Security-oriented personas (adversarial, edge_case, angry_user): The test PASSES if the website handles the unexpected behavior gracefully, even if the "task" itself didn't complete normally. An adversarial test where the injection is sanitized is a PASS. An adversarial test where the input is silently accepted without any crash, data leak, or code execution is ALSO a PASS — silent sanitization is correct security behavior. Do NOT fail a test simply because the site didn't show an explicit error message for bad input.
+## Feedback quality assessment
 
-CRITICAL — UX-oriented personas (happy_path, confused_novice, impatient_user, explorer): The test FAILS if the website handles the situation silently with no visible feedback. These personas represent real users who need to UNDERSTAND what happened. A disabled button with no tooltip, a form that silently rejects input, or an action with no confirmation is a UX failure even if no crash occurred. The site must provide visible guidance — error messages, loading indicators, inline hints, tooltips on disabled controls, or redirect explanations.
+For EVERY test, evaluate the website's feedback quality:
+- **response_present**: Did the site produce ANY response to the user's action? (visual change, message, redirect, state update)
+- **response_timely**: Did feedback appear within a reasonable time? (< 2s for UI actions)
+- **response_clear**: Was the feedback understandable for THIS persona's trait levels? (relative to technical_literacy and reading_comprehension)
+- **response_actionable**: Could the user determine what to do next based on the feedback?
+- **feedback_type**: Classify the response mechanism (none, silent_handling, visual_state_change, inline_message, toast_notification, modal_dialog, page_redirect, error_page)
 
 ## Success criteria interpretation
 
@@ -96,6 +164,8 @@ JUDGE_USER_TEMPLATE = """\
 **Steps:** {steps}
 **Success Criteria:** {criteria}
 
+{trait_context}
+
 ## Intended Starting URL
 {start_url}
 
@@ -125,19 +195,9 @@ JUDGE_USER_TEMPLATE = """\
 - If evidence is ambiguous, return verdict=false.
 
 Based on the Navigation Evidence and Pages Reached, did the agent successfully complete this test?
+Evaluate each trait dimension independently and report per-trait assessments in trait_evaluations.
+Also assess feedback quality (response_present, response_timely, response_clear, response_actionable, feedback_type).
 """
-
-
-class JudgeVerdict(BaseModel):
-	reasoning: str
-	verdict: bool
-	failure_reason: str
-	impossible_task: bool
-	reached_captcha: bool
-	failure_category: Literal['website_issue', 'test_limitation'] | None
-	process_evaluation: str = ''
-	logical_evaluation: str = ''
-	usability_evaluation: str = ''
 
 
 def _extract_navigation_evidence(history: AgentHistoryList) -> str:
@@ -244,8 +304,15 @@ async def murphy_judge(
 	scenario: TestScenario,
 	llm: ChatOpenAI,
 	start_url: str = '',
-) -> dict:
-	"""Evaluate agent success based on action trace, not self-report."""
+	*,
+	judge_llm: ChatOpenAI | None = None,
+) -> JudgeVerdict:
+	"""Evaluate agent success based on action trace, not self-report.
+
+	When judge_llm is provided, it is used for the verdict call instead of llm.
+	This allows using a more capable model for judging while using a cheaper model elsewhere.
+	"""
+	judge = judge_llm or llm
 	# Pre-processed evidence
 	navigation_evidence = _extract_navigation_evidence(history)
 	pages_reached = _format_pages_reached(history)
@@ -261,12 +328,20 @@ async def murphy_judge(
 	# Final result
 	final_result = history.final_result() or '(no final response)'
 
+	# Build trait context for this persona
+	trait_context = ''
+	persona_entry = PERSONA_REGISTRY.get(scenario.test_persona)
+	if persona_entry:
+		traits, test_type = persona_entry
+		trait_context = build_judge_trait_context(scenario.test_persona, traits, test_type)
+
 	user_prompt = JUDGE_USER_TEMPLATE.format(
 		name=scenario.name,
 		persona=scenario.test_persona,
 		description=scenario.description,
 		steps=scenario.steps_description,
 		criteria=scenario.success_criteria,
+		trait_context=trait_context,
 		start_url=start_url or '(not provided)',
 		navigation_evidence=navigation_evidence,
 		pages_reached=pages_reached,
@@ -275,10 +350,26 @@ async def murphy_judge(
 		final_result=final_result,
 	)
 
-	response = await llm.ainvoke(
+	# Build multimodal user message with screenshots for visual verification
+	user_content: list[ContentPartTextParam | ContentPartImageParam] = [
+		ContentPartTextParam(text=user_prompt),
+	]
+
+	# Attach last N screenshots (base64) — these let the judge verify visual feedback
+	screenshots = history.screenshots(n_last=3)
+	for i, screenshot_b64 in enumerate(screenshots):
+		if screenshot_b64:
+			user_content.append(ContentPartTextParam(text=f'\n## Screenshot {i + 1} of {len(screenshots)}'))
+			user_content.append(
+				ContentPartImageParam(
+					image_url=ImageURL(url=f'data:image/png;base64,{screenshot_b64}', detail='low'),
+				)
+			)
+
+	response = await judge.ainvoke(
 		messages=[
 			SystemMessage(content=JUDGE_SYSTEM_PROMPT),
-			UserMessage(content=user_prompt),
+			UserMessage(content=user_content),
 		],
 		output_format=JudgeVerdict,
 	)
@@ -286,4 +377,4 @@ async def murphy_judge(
 	verdict = response.completion
 	assert isinstance(verdict, JudgeVerdict), f'Expected JudgeVerdict, got {type(verdict)}'
 
-	return verdict.model_dump()
+	return verdict

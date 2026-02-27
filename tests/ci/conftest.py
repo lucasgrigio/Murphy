@@ -11,7 +11,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 from dotenv import load_dotenv
-from pytest_httpserver import HTTPServer
 
 # Fix for httpserver hanging on shutdown - prevent blocking on socket close
 # This prevents tests from hanging when shutting down HTTP servers
@@ -33,7 +32,6 @@ os.environ['SKIP_LLM_API_KEY_VERIFICATION'] = 'true'
 
 from bubus import BaseEvent
 
-from browser_use import Agent
 from browser_use.browser import BrowserProfile, BrowserSession
 
 

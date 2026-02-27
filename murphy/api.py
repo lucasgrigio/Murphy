@@ -85,7 +85,7 @@ class AnalyzeRequest(BaseModel):
 	url: str
 	category: str | None = None
 	goal: str | None = None
-	model: str = 'gpt-4o'
+	model: str = 'gpt-5-mini'
 	webhook_url: str | None = None
 	async_mode: bool = Field(False, alias='async')
 
@@ -97,7 +97,7 @@ class GeneratePlanRequest(BaseModel):
 	analysis: Annotated[WebsiteAnalysis, BeforeValidator(_parse_json_string)]
 	max_tests: int = 8
 	goal: str | None = None
-	model: str = 'gpt-4o'
+	model: str = 'gpt-5-mini'
 	webhook_url: str | None = None
 	async_mode: bool = Field(False, alias='async')
 
@@ -109,9 +109,10 @@ class ExecuteRequest(BaseModel):
 	test_plan: Annotated[TestPlan, BeforeValidator(_parse_json_string)] | None = None
 	evaluate_job_id: str | None = None
 	goal: str | None = None
-	model: str = 'gpt-4o'
+	model: str = 'gpt-5-mini'
+	judge_model: str = 'gpt-4o'
 	max_steps: int = 15
-	max_concurrent: int = 1
+	max_concurrent: int = 3
 	webhook_url: str | None = None
 	async_mode: bool = Field(False, alias='async')
 
@@ -132,7 +133,8 @@ class EvaluateRequest(BaseModel):
 	url: str
 	goal: str | None = None
 	max_tests: int = 8
-	model: str = 'gpt-4o'
+	model: str = 'gpt-5-mini'
+	judge_model: str = 'gpt-4o'
 	async_mode: bool = Field(False, alias='async')
 	webhook_url: str | None = None
 
@@ -212,6 +214,7 @@ async def _core_execute(req: ExecuteRequest) -> dict[str, Any]:
 
 	fixture_paths = ensure_dummy_fixture_files()
 	llm = ChatOpenAI(model=req.model)
+	judge_llm = ChatOpenAI(model=req.judge_model) if req.judge_model != req.model else None
 	browser_session = BrowserSession(browser_profile=BrowserProfile(headless=True, keep_alive=False))
 	await browser_session.start()
 
@@ -225,6 +228,7 @@ async def _core_execute(req: ExecuteRequest) -> dict[str, Any]:
 			fixture_paths=fixture_paths,
 			max_steps=req.max_steps,
 			max_concurrent=req.max_concurrent,
+			judge_llm=judge_llm,
 		)
 		summary = build_summary(results)
 		return ExecuteResult(results=results, summary=summary).model_dump()
