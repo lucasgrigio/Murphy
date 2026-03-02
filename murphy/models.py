@@ -55,31 +55,73 @@ TestType = Literal['ux', 'security', 'boundary']
 
 PERSONA_REGISTRY: dict[TestPersona, tuple[TraitVector, TestType]] = {
 	'happy_path': (
-		TraitVector(technical_literacy=TraitLevel.high, patience=TraitLevel.high, intent='benign', exploration=TraitLevel.low, reading_comprehension=TraitLevel.high),
+		TraitVector(
+			technical_literacy=TraitLevel.high,
+			patience=TraitLevel.high,
+			intent='benign',
+			exploration=TraitLevel.low,
+			reading_comprehension=TraitLevel.high,
+		),
 		'ux',
 	),
 	'confused_novice': (
-		TraitVector(technical_literacy=TraitLevel.low, patience=TraitLevel.medium, intent='benign', exploration=TraitLevel.medium, reading_comprehension=TraitLevel.low),
+		TraitVector(
+			technical_literacy=TraitLevel.low,
+			patience=TraitLevel.medium,
+			intent='benign',
+			exploration=TraitLevel.medium,
+			reading_comprehension=TraitLevel.low,
+		),
 		'ux',
 	),
 	'adversarial': (
-		TraitVector(technical_literacy=TraitLevel.high, patience=TraitLevel.high, intent='adversarial', exploration=TraitLevel.medium, reading_comprehension=TraitLevel.high),
+		TraitVector(
+			technical_literacy=TraitLevel.high,
+			patience=TraitLevel.high,
+			intent='adversarial',
+			exploration=TraitLevel.medium,
+			reading_comprehension=TraitLevel.high,
+		),
 		'security',
 	),
 	'edge_case': (
-		TraitVector(technical_literacy=TraitLevel.high, patience=TraitLevel.medium, intent='exploratory', exploration=TraitLevel.low, reading_comprehension=TraitLevel.medium),
+		TraitVector(
+			technical_literacy=TraitLevel.high,
+			patience=TraitLevel.medium,
+			intent='exploratory',
+			exploration=TraitLevel.low,
+			reading_comprehension=TraitLevel.medium,
+		),
 		'boundary',
 	),
 	'explorer': (
-		TraitVector(technical_literacy=TraitLevel.medium, patience=TraitLevel.medium, intent='exploratory', exploration=TraitLevel.high, reading_comprehension=TraitLevel.medium),
+		TraitVector(
+			technical_literacy=TraitLevel.medium,
+			patience=TraitLevel.medium,
+			intent='exploratory',
+			exploration=TraitLevel.high,
+			reading_comprehension=TraitLevel.medium,
+		),
 		'ux',
 	),
 	'impatient_user': (
-		TraitVector(technical_literacy=TraitLevel.medium, patience=TraitLevel.low, intent='benign', exploration=TraitLevel.low, reading_comprehension=TraitLevel.low),
+		TraitVector(
+			technical_literacy=TraitLevel.medium,
+			patience=TraitLevel.low,
+			intent='benign',
+			exploration=TraitLevel.low,
+			reading_comprehension=TraitLevel.low,
+		),
 		'ux',
 	),
 	'angry_user': (
-		TraitVector(technical_literacy=TraitLevel.medium, patience=TraitLevel.low, intent='benign', exploration=TraitLevel.low, reading_comprehension=TraitLevel.low),
+		TraitVector(
+			technical_literacy=TraitLevel.medium,
+			patience=TraitLevel.low,
+			intent='benign',
+			exploration=TraitLevel.low,
+			reading_comprehension=TraitLevel.low,
+		),
 		'security',
 	),
 }
@@ -92,9 +134,14 @@ class FeedbackQualityScore(BaseModel):
 	response_clear: bool
 	response_actionable: bool
 	feedback_type: Literal[
-		'none', 'silent_handling', 'visual_state_change',
-		'inline_message', 'toast_notification', 'modal_dialog',
-		'page_redirect', 'error_page',
+		'none',
+		'silent_handling',
+		'visual_state_change',
+		'inline_message',
+		'toast_notification',
+		'modal_dialog',
+		'page_redirect',
+		'error_page',
 	]
 
 

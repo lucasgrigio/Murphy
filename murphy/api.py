@@ -60,6 +60,7 @@ _JOB_TIMEOUT_OVERRIDE = os.environ.get('MURPHY_JOB_TIMEOUT_OVERRIDE')
 # How long to wait for a semaphore slot before returning 503
 _SEMAPHORE_ACQUIRE_TIMEOUT = 30
 
+
 def _effective_timeout(timeout: int) -> int:
 	"""Return the override timeout if set, otherwise the per-endpoint value."""
 	if _JOB_TIMEOUT_OVERRIDE is not None:

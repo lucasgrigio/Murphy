@@ -9,12 +9,30 @@ from murphy.models import PERSONA_REGISTRY, TestPersona, TestScenario, TraitVect
 # Percentages for persona distribution in test generation
 _PERSONA_DISTRIBUTION: dict[TestPersona, tuple[int, str]] = {
 	'happy_path': (20, 'Standard user, expected flow. A skilled user who knows exactly what they want.'),
-	'confused_novice': (15, "Simulate someone who doesn't read labels, clicks wrong buttons, submits empty forms, navigates backward repeatedly."),
-	'adversarial': (15, 'Try to break things: XSS payloads, SQL injection, navigate to /admin, submit forms with whitespace, paste HTML tags.'),
-	'edge_case': (15, 'Empty submissions, extremely long inputs (500+ chars), special characters (emoji, RTL text, null bytes, unicode), double-clicking.'),
-	'explorer': (10, 'Unexpected navigation patterns — visit pages out of order, use features in unintended combinations, click decorative elements.'),
-	'impatient_user': (15, 'Click rapidly without waiting, skip required steps, submit forms immediately, navigate away mid-action, spam buttons.'),
-	'angry_user': (10, 'Rage-clicks buttons, types profanity into fields, force-navigates by typing URLs, hammers the back button.'),
+	'confused_novice': (
+		15,
+		"Simulate someone who doesn't read labels, clicks wrong buttons, submits empty forms, navigates backward repeatedly.",
+	),
+	'adversarial': (
+		15,
+		'Try to break things: XSS payloads, SQL injection, navigate to /admin, submit forms with whitespace, paste HTML tags.',
+	),
+	'edge_case': (
+		15,
+		'Empty submissions, extremely long inputs (500+ chars), special characters (emoji, RTL text, null bytes, unicode), double-clicking.',
+	),
+	'explorer': (
+		10,
+		'Unexpected navigation patterns — visit pages out of order, use features in unintended combinations, click decorative elements.',
+	),
+	'impatient_user': (
+		15,
+		'Click rapidly without waiting, skip required steps, submit forms immediately, navigate away mid-action, spam buttons.',
+	),
+	'angry_user': (
+		10,
+		'Rage-clicks buttons, types profanity into fields, force-navigates by typing URLs, hammers the back button.',
+	),
 }
 
 

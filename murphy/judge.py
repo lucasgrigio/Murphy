@@ -75,9 +75,13 @@ def build_judge_trait_context(persona: str, traits: TraitVector, test_type: Test
 	# Intent doesn't use TraitLevel — add it directly
 	intent = traits.intent
 	if intent == 'adversarial':
-		lines.append(f'- **intent** ({intent}): Is the site RESISTING the attack? Input sanitized or rejected = PASS. Script executed, debug info leaked, raw SQL error = FAIL.')
+		lines.append(
+			f'- **intent** ({intent}): Is the site RESISTING the attack? Input sanitized or rejected = PASS. Script executed, debug info leaked, raw SQL error = FAIL.'
+		)
 	elif intent == 'exploratory':
-		lines.append(f'- **intent** ({intent}): Does the site handle unexpected usage gracefully? Non-crash non-leak behavior = PASS.')
+		lines.append(
+			f'- **intent** ({intent}): Does the site handle unexpected usage gracefully? Non-crash non-leak behavior = PASS.'
+		)
 	else:
 		lines.append(f'- **intent** ({intent}): Did the site complete the intended task successfully?')
 
