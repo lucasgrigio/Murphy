@@ -48,7 +48,7 @@ async def main():
 	from murphy.test_plan_io import load_test_plan, save_test_plan
 
 	parser = argparse.ArgumentParser(description='Murphy — AI-driven website evaluation')
-	parser.add_argument('url', nargs='?', default='https://www.prosus.com', help='Website URL to evaluate')
+	parser.add_argument('url', nargs='?', default='https://example.com', help='Website URL to evaluate')
 	parser.add_argument('--category', help='Site category hint (ecommerce, saas, content, social)')
 	parser.add_argument('--model', default='gpt-5-mini', help='OpenAI model for agent tasks (default: gpt-5-mini)')
 	parser.add_argument('--judge-model', default='gpt-4o', help='OpenAI model for judging verdicts (default: gpt-4o)')
