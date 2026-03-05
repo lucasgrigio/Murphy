@@ -218,8 +218,8 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 	lines.append('')
 	lines.append(f'**Metrics:** {_format_metrics_line(m)}')
 	lines.append('')
-	lines.append('**Path followed:**')
-	lines.append(f'{_format_path(r)}')
+	# lines.append('**Path followed:**')
+	# lines.append(f'{_format_path(r)}')
 	lines.append('')
 
 	# ── Form fills ──
@@ -269,15 +269,15 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 		lines.append('')
 
 	# ── Feedback quality ──
-	if r.feedback_quality:
-		fq = r.feedback_quality
-		score = sum([fq.response_present, fq.response_timely, fq.response_clear, fq.response_actionable])
-		lines += [
-			'**Feedback quality:**',
-			f'- Present: {"Yes" if fq.response_present else "No"} | Timely: {"Yes" if fq.response_timely else "No"} | Clear: {"Yes" if fq.response_clear else "No"} | Actionable: {"Yes" if fq.response_actionable else "No"}',
-			f'- Type: {fq.feedback_type} | Score: {score}/4',
-			'',
-		]
+	# if r.feedback_quality:
+	# 	fq = r.feedback_quality
+	# 	score = sum([fq.response_present, fq.response_timely, fq.response_clear, fq.response_actionable])
+	# 	lines += [
+	# 		'**Feedback quality:**',
+	# 		f'- Present: {"Yes" if fq.response_present else "No"} | Timely: {"Yes" if fq.response_timely else "No"} | Clear: {"Yes" if fq.response_clear else "No"} | Actionable: {"Yes" if fq.response_actionable else "No"}',
+	# 		f'- Type: {fq.feedback_type} | Score: {score}/4',
+	# 		'',
+	# 	]
 
 	# ── Pages visited ──
 	if r.pages_visited:
@@ -301,12 +301,13 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 				'',
 			]
 
-		if judge_reasoning and judge_reasoning != failure_reason:
-			lines += [
-				'**Details:**',
-				f'{judge_reasoning}',
-				'',
-			]
+		# commented out because it's not that relevant for v1
+		# if judge_reasoning and judge_reasoning != failure_reason:
+		# 	lines += [
+		# 		'**Details:**',
+		# 		f'{judge_reasoning}',
+		# 		'',
+		# 	]
 
 		suggestion = _suggest_fix(r)
 		if suggestion:
@@ -352,8 +353,8 @@ def write_markdown_report(report: EvaluationReport, output_dir: Path) -> Path:
 		f'- Website Issues: {s.website_issues}',
 		f'- Test Limitations: {s.test_limitations}',
 		'',
-		'| Test | Persona | Priority | Result | Category | Duration |',
-		'|------|---------|----------|--------|----------|----------|',
+		'| Test | Persona | Result | Category | Duration |',
+		'|------|---------|--------|----------|----------|',
 	]
 	for r in report.results:
 		persona_label = r.scenario.test_persona.replace('_', ' ').title()
@@ -370,49 +371,48 @@ def write_markdown_report(report: EvaluationReport, output_dir: Path) -> Path:
 			result_str = 'Failed'
 			category_str = 'Test Limitation'
 		lines.append(
-			f'| {emoji} {r.scenario.name} | {persona_label} | {r.scenario.priority} | '
-			f'{result_str} | {category_str} | {r.duration:.0f}s |'
+			f'| {emoji} {r.scenario.name} | {persona_label} | {result_str} | {category_str} | {r.duration:.0f}s |'
 		)
 
 	# Per-priority breakdown if there are multiple priorities
-	priorities_present = list(s.by_priority.keys())
-	if len(priorities_present) > 1:
-		lines += [
-			'',
-			'### By Priority',
-			'',
-			'| Priority | Passed | Failed |',
-			'|----------|--------|--------|',
-		]
-		for priority in ['critical', 'high', 'medium', 'low']:
-			if priority in s.by_priority:
-				d = s.by_priority[priority]
-				lines.append(f'| {priority.capitalize()} | {d["passed"]} | {d["failed"]} |')
+	# priorities_present = list(s.by_priority.keys())
+	# if len(priorities_present) > 1:
+	# 	lines += [
+	# 		'',
+	# 		'### By Priority',
+	# 		'',
+	# 		'| Priority | Passed | Failed |',
+	# 		'|----------|--------|--------|',
+	# 	]
+	# 	for priority in ['critical', 'high', 'medium', 'low']:
+	# 		if priority in s.by_priority:
+	# 			d = s.by_priority[priority]
+	# 			lines.append(f'| {priority.capitalize()} | {d["passed"]} | {d["failed"]} |')
 
 	# Per-persona breakdown
-	persona_stats: dict[str, dict[str, int]] = {}
-	for r in report.results:
-		p = r.scenario.test_persona
-		if p not in persona_stats:
-			persona_stats[p] = {'passed': 0, 'failed': 0}
-		if r.success:
-			persona_stats[p]['passed'] += 1
-		else:
-			persona_stats[p]['failed'] += 1
+	# persona_stats: dict[str, dict[str, int]] = {}
+	# for r in report.results:
+	# 	p = r.scenario.test_persona
+	# 	if p not in persona_stats:
+	# 		persona_stats[p] = {'passed': 0, 'failed': 0}
+	# 	if r.success:
+	# 		persona_stats[p]['passed'] += 1
+	# 	else:
+	# 		persona_stats[p]['failed'] += 1
 
-	if len(persona_stats) > 1:
-		lines += [
-			'',
-			'### By Persona',
-			'',
-			'| Persona | Passed | Failed |',
-			'|---------|--------|--------|',
-		]
-		for persona in ['happy_path', 'confused_novice', 'adversarial', 'edge_case', 'explorer', 'impatient_user', 'angry_user']:
-			if persona in persona_stats:
-				d = persona_stats[persona]
-				label = persona.replace('_', ' ').title()
-				lines.append(f'| {label} | {d["passed"]} | {d["failed"]} |')
+	# if len(persona_stats) > 1:
+	# 	lines += [
+	# 		'',
+	# 		'### By Persona',
+	# 		'',
+	# 		'| Persona | Passed | Failed |',
+	# 		'|---------|--------|--------|',
+	# 	]
+	# 	for persona in ['happy_path', 'confused_novice', 'adversarial', 'edge_case', 'explorer', 'impatient_user', 'angry_user']:
+	# 		if persona in persona_stats:
+	# 			d = persona_stats[persona]
+	# 			label = persona.replace('_', ' ').title()
+	# 			lines.append(f'| {label} | {d["passed"]} | {d["failed"]} |')
 
 	# ── Feedback Quality Index ────────────────────────────────────────────────
 	fq_results = [r for r in report.results if r.feedback_quality]
@@ -467,48 +467,45 @@ def write_markdown_report(report: EvaluationReport, output_dir: Path) -> Path:
 		lines += ['## Website Issues', '']
 		for i, r in enumerate(website_issues, 1):
 			persona_label = r.scenario.test_persona.replace('_', ' ').title()
-			lines += [
-				f'### {i}. \U0001f534 {r.scenario.name}',
-				'',
+			summary_text = f'\U0001f534 {i}. {r.scenario.name} — {persona_label}'
+			detail_lines: list[str] = [
 				f'**Persona:** {persona_label}',
 				'',
 				f'**What was tested:** {r.scenario.description}',
 				'',
 			]
-			_render_test_detail(r, i, lines)
-			lines += ['---', '']
+			_render_test_detail(r, i, detail_lines)
+			lines += ['<details>', f'<summary>{summary_text}</summary>', ''] + detail_lines + ['</details>', '']
 
 	# ── Test Limitations section ──────────────────────────────────────────────
 	if test_limitations:
 		lines += ['## Test Limitations', '']
 		for i, r in enumerate(test_limitations, 1):
 			persona_label = r.scenario.test_persona.replace('_', ' ').title()
-			lines += [
-				f'### {i}. \u26a0\ufe0f {r.scenario.name}',
-				'',
+			summary_text = f'\u26a0\ufe0f {i}. {r.scenario.name} — {persona_label}'
+			detail_lines = [
 				f'**Persona:** {persona_label}',
 				'',
 				f'**What was tested:** {r.scenario.description}',
 				'',
 			]
-			_render_test_detail(r, i, lines)
-			lines += ['---', '']
+			_render_test_detail(r, i, detail_lines)
+			lines += ['<details>', f'<summary>{summary_text}</summary>', ''] + detail_lines + ['</details>', '']
 
 	# ── Passed Tests section ──────────────────────────────────────────────────
 	if passed_tests:
 		lines += ['## Passed Tests', '']
 		for i, r in enumerate(passed_tests, 1):
 			persona_label = r.scenario.test_persona.replace('_', ' ').title()
-			lines += [
-				f'### {i}. \u2705 {r.scenario.name}',
-				'',
+			summary_text = f'\u2705 {i}. {r.scenario.name} — {persona_label}'
+			detail_lines = [
 				f'**Persona:** {persona_label}',
 				'',
 				f'**What was tested:** {r.scenario.description}',
 				'',
 			]
-			_render_test_detail(r, i, lines)
-			lines += ['---', '']
+			_render_test_detail(r, i, detail_lines)
+			lines += ['<details>', f'<summary>{summary_text}</summary>', ''] + detail_lines + ['</details>', '']
 
 	# Features discovered
 	if a.features:
