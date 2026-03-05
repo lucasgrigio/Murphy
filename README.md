@@ -126,7 +126,71 @@ Launch the web UI with:
 murphy --url https://example.com --ui
 ```
 
-The UI lets you watch test execution in real time, review results interactively, and re-run individual tests.
+The UI lets you review the generated test plan, run all tests with a live progress bar, and view detailed results with pass/fail verdicts, action traces, and failure analysis.
+
+---
+
+## REST API
+
+Murphy also exposes a REST API for programmatic evaluation:
+
+```bash
+murphy-api
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `POST` | `/analyze` | Website analysis (feature discovery) |
+| `POST` | `/generate-plan` | Test plan generation from analysis |
+| `POST` | `/execute` | Test execution from plan |
+| `POST` | `/evaluate` | Combined explore + plan generation |
+| `GET` | `/jobs/{job_id}` | Job status polling (supports long-poll via `?poll=N`) |
+
+Every `POST` endpoint supports three modes:
+
+- **Synchronous** (default) — blocks until completion, returns `200` with result
+- **Async + webhook** (`webhook_url` set) — returns `202` with `job_id`, POSTs result to webhook on completion
+- **Async + polling** (`"async": true`) — returns `202` with `job_id`, poll `/jobs/{job_id}` for result
+
+Authentication is via `X-API-Key` header when `MURPHY_API_KEY` is configured.
+
+---
+
+## Environment Variables
+
+All variables are optional unless noted. See `.env.example` for a template.
+
+### LLM Providers
+
+| Variable | Description |
+|----------|-------------|
+| `OPENAI_API_KEY` | OpenAI API key (required if using default `gpt-5-mini` model) |
+| `ANTHROPIC_API_KEY` | Anthropic API key (if using `--model` with an Anthropic model) |
+| `GOOGLE_API_KEY` | Google API key (if using `--model` with a Google model) |
+| `GROQ_API_KEY` | Groq API key (if using `--model` with a Groq model) |
+| `DEEPSEEK_API_KEY` | DeepSeek API key (if using `--model` with a DeepSeek model) |
+
+### REST API
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MURPHY_API_KEY` | *(none)* | API key for REST API authentication (open access if unset) |
+| `MURPHY_API_HOST` | `0.0.0.0` | Host to bind the API server |
+| `MURPHY_API_PORT` | `8000` | Port for the API server |
+| `MURPHY_MAX_CONCURRENT_JOBS` | `2` | Maximum concurrent browser jobs |
+| `MURPHY_REQUEST_TIMEOUT` | `1800` | HTTP keep-alive timeout (seconds) |
+| `MURPHY_JOB_TIMEOUT_OVERRIDE` | *(none)* | Override all per-endpoint job timeouts (seconds) |
+
+### Browser
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BROWSER_USE_EXECUTABLE_PATH` | *(auto)* | Path to Chrome/Chromium executable |
+| `BROWSER_USE_HEADLESS` | `true` | Run browser in headless mode |
+| `BROWSER_USE_LOGGING_LEVEL` | `info` | Logging level |
 
 ---
 

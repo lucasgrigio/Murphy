@@ -29,6 +29,31 @@
 | `server.py` | Interactive web UI server |
 | `regen_report.py` | Script to regenerate markdown from existing JSON report |
 
+## REST API (`murphy-api`)
+
+Murphy exposes a REST API via FastAPI for programmatic evaluation. Start with `murphy-api`.
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `POST` | `/analyze` | Website analysis (feature discovery) |
+| `POST` | `/generate-plan` | Test plan generation from analysis |
+| `POST` | `/execute` | Test execution from plan |
+| `POST` | `/evaluate` | Combined explore + plan generation |
+| `GET` | `/jobs/{job_id}` | Job status polling (supports long-poll via `?poll=N`) |
+
+### Execution modes
+
+Every `POST` endpoint supports three modes:
+
+1. **Synchronous** (default) — blocks until completion, returns `200` with result
+2. **Async + webhook** (`webhook_url` set) — returns `202` with `job_id`, POSTs result to the webhook URL on completion
+3. **Async + polling** (`"async": true`) — returns `202` with `job_id`, poll `/jobs/{job_id}` for result
+
+Authentication is via `X-API-Key` header when `MURPHY_API_KEY` is set. Concurrent jobs are limited by `MURPHY_MAX_CONCURRENT_JOBS` (default: 2).
+
 ## Browser-Use Engine (`browser_use/`)
 
 Browser-Use is the async Python library that powers Murphy's browser automation. It uses LLMs + CDP (Chrome DevTools Protocol) to enable AI agents to autonomously navigate web pages, interact with elements, and complete complex tasks.

@@ -22,6 +22,7 @@ dependencies = [
     "portalocker>=2.7.0,<3.0.0",
     "psutil>=7.0.0",
     "pydantic>=2.11.5",
+    "pydantic-settings>=2.10.1",
     "pyobjc>=11.0; platform_system == 'darwin'",
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",
@@ -200,5 +201,4 @@ dev-dependencies = [
     "lmnr[all]==0.7.17",
     # "pytest-playwright-asyncio>=0.7.0",  # not actually needed I think
     "pytest-timeout>=2.4.0",
-    "pydantic_settings>=2.10.1",
 ]
