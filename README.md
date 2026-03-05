@@ -1,6 +1,6 @@
 # Murphy — AI-Driven Website Evaluation
 
-Murphy automatically evaluates websites in two phases: **plan** (discover features and generate test scenarios) and **execute** (run tests in a real browser with an AI judge). It produces structured evaluation reports with pass/fail results, failure categorization, and actionable summaries.
+Murphy automatically evaluates websites by generating and executing test scenarios in a real browser with an AI judge. It supports two planning strategies — **broad feature discovery** (default) and **goal-directed exploration** (`--goal`) — followed by test execution. It produces structured evaluation reports with pass/fail results, failure categorization, and actionable summaries.
 
 Built on top of [browser-use](https://github.com/browser-use/browser-use) (AI browser automation library).
 
@@ -18,7 +18,7 @@ Built on top of [browser-use](https://github.com/browser-use/browser-use) (AI br
 | **Review pauses** | Works — you edit files on disk and press Enter | Works — files are on a mounted volume, press Enter in the same terminal |
 | **Requires** | Python >= 3.11, uv, Chromium | Docker |
 
-**Rule of thumb:** use **local** if the site requires authentication. Both setups are interactive — Murphy pauses for you to review and edit the generated features and test plan before continuing.
+**Rule of thumb:** use **local** if the site requires authentication. Both setups are interactive — Murphy pauses for you to review and edit the generated test plan (and features, when not using `--goal`) before continuing.
 
 ## Setup (local)
 
@@ -74,7 +74,7 @@ All examples below use `uv run murphy`. If running via Docker, replace with `./m
 # Full run: auto-detect auth -> analyze site -> generate tests -> execute
 uv run murphy --url https://example.com
 
-# With a specific goal (biases test generation toward that area)
+# Goal-directed: explores with focus, skips feature discovery, generates plan directly
 uv run murphy --url https://example.com --goal "test the checkout flow"
 
 # Site requires login — opens browser for manual auth first (local only, not Docker)
@@ -90,11 +90,15 @@ uv run murphy --url https://example.com --plan murphy/output/test_plan.yaml
 
 ## How It Works
 
-Murphy runs two phases with human-in-the-loop pauses for review:
+Murphy supports two planning strategies, both followed by the same execution phase:
 
-**Phase 1 — Plan:** An AI agent navigates the site, discovers pages, and catalogs features. Murphy saves an editable `<site>_features.md` and pauses for review. Then an LLM reads the features and produces test scenarios with steps and success criteria, saving an editable `test_plan.yaml` with another pause for review.
+**Strategy A — Feature discovery (default, no `--goal`):**
+An AI agent navigates the site, discovers pages, and catalogs features. Murphy saves an editable `<site>_features.md` and pauses for review. Then an LLM reads the features and produces test scenarios, saving an editable `test_plan.yaml` with another pause for review.
 
-**Phase 2 — Execute:** An AI agent runs each test scenario in a real browser, and a judge LLM evaluates pass/fail. Saves `evaluation_report.json` and `evaluation_report.md`.
+**Strategy B — Goal-directed exploration (`--goal`):**
+An AI agent explores the site with the given goal in mind, then synthesizes a test plan directly from the exploration. Murphy saves an editable `test_plan.yaml` and pauses for review. No `features.md` is generated — the exploration replaces broad feature discovery.
+
+**Execution (both strategies):** An AI agent runs each test scenario in a real browser, and a separate judge LLM evaluates pass/fail. Saves `evaluation_report.json` and `evaluation_report.md`.
 
 You can resume from any point by passing `--features` or `--plan` with a previously generated (and optionally edited) file.
 
@@ -104,7 +108,7 @@ Default output directory: `./murphy/output/`
 
 | File | Description |
 |------|-------------|
-| `<site>_features.md` | Discovered features, pages, and user flows (editable) |
+| `<site>_features.md` | Discovered features, pages, and user flows (editable; only generated without `--goal`) |
 | `test_plan.yaml` | Generated test scenarios with steps and success criteria (editable) |
 | `evaluation_report.json` | Full structured results (machine-readable) |
 | `evaluation_report.md` | Human-readable summary with pass/fail per test |
