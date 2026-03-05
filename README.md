@@ -2,7 +2,7 @@
 
 Murphy is a 3-phase agent that automatically evaluates websites: **analyze** the site to discover features, **generate** test scenarios, then **execute** them with an AI browser agent. It produces structured evaluation reports with pass/fail results, failure categorization, and actionable summaries.
 
-Built on top of [browser-use](README_browseruse.md) (AI browser automation library).
+Built on top of [browser-use](https://github.com/browser-use/browser-use) (AI browser automation library).
 
 ## Prerequisites
 
@@ -41,7 +41,7 @@ OPENAI_API_KEY=sk-...
 
 **1. Build the image:**
 ```bash
-docker build . -t murphy --no-cache
+docker build -f docker/Dockerfile . -t murphy --no-cache
 ```
 
 **2. Create `.env` with your API key** (same as above).
@@ -56,21 +56,21 @@ The script mounts `murphy/` and `.env` into the container and runs `python -m mu
 ## Usage
 
 ```bash
-# Full run: auto-detect auth → analyze site → generate tests → execute
+# Full run: auto-detect auth -> analyze site -> generate tests -> execute
 murphy --url https://example.com
 
 # With a specific goal (biases test generation toward that area)
-murphy --url https://work.toqan.ai --goal "check if agent creation works"
+murphy --url https://example.com --goal "check if agent creation works"
 
 # Site requires login — opens browser for manual auth first
-murphy --url https://work.toqan.ai --auth
+murphy --url https://example.com --auth
 
 # Public site, skip auth detection entirely
 murphy --url https://example.com --no-auth
 
 # Resume from previously generated/edited files
-murphy --url https://work.toqan.ai --features murphy/output/work_toqan_ai_features.md
-murphy --url https://work.toqan.ai --plan murphy/output/test_plan.yaml
+murphy --url https://example.com --features murphy/output/example_com_features.md
+murphy --url https://example.com --plan murphy/output/test_plan.yaml
 ```
 
 You can also run as a Python module:
@@ -131,3 +131,145 @@ uv sync --extra cli
 ```
 
 The UI lets you watch test execution in real time, review results interactively, and re-run individual tests.
+
+---
+
+## Architecture
+
+### Murphy File Organization (`murphy/`)
+
+| File | Purpose |
+|------|---------|
+| `cli.py` | CLI entry point and orchestration |
+| `evaluate.py` | Core evaluation logic (exploration, plan generation, test execution) |
+| `judge.py` | LLM judge for pass/fail verdicts |
+| `models.py` | Pydantic models (TestPlan, TestResult, ScenarioExecutionVerdict, etc.) |
+| `report.py` | Markdown report generation |
+| `server.py` | Web UI server |
+| `actions.py` | Custom agent actions (domain access, DOM refresh) |
+| `session_utils.py` | Session management helpers |
+| `patches.py` | Monkey-patches for schema resolution |
+| `fixtures.py` + `fixtures/` | Dummy upload files for test scenarios |
+
+### Browser-Use Engine (`browser_use/`)
+
+Browser-Use is the async Python library that powers Murphy's browser automation. It uses LLMs + CDP (Chrome DevTools Protocol) to enable AI agents to autonomously navigate web pages, interact with elements, and complete complex tasks.
+
+The library follows an event-driven architecture:
+
+- **Agent (`browser_use/agent/service.py`)** — Main orchestrator: takes tasks, manages browser sessions, executes LLM-driven action loops
+- **BrowserSession (`browser_use/browser/session.py`)** — Manages browser lifecycle, CDP connections, and coordinates watchdog services through a `bubus` event bus
+- **Tools (`browser_use/tools/service.py`)** — Action registry mapping LLM decisions to browser operations (click, type, scroll, etc.)
+- **DomService (`browser_use/dom/service.py`)** — Extracts/processes DOM content, handles element highlighting and accessibility tree generation
+- **LLM Integration (`browser_use/llm/`)** — Abstraction layer supporting OpenAI, Anthropic, Google, Groq, and other providers
+
+### Event-Driven Browser Management
+
+BrowserSession uses a `bubus` event bus to coordinate watchdog services:
+
+- **DownloadsWatchdog** — PDF auto-download and file management
+- **PopupsWatchdog** — JavaScript dialogs and popups
+- **SecurityWatchdog** — Domain restrictions and security policies
+- **DOMWatchdog** — DOM snapshots, screenshots, and element highlighting
+- **AboutBlankWatchdog** — Empty page redirects
+
+### File Organization Patterns
+
+- **Service pattern**: Each major component has a `service.py` containing main logic (Agent, BrowserSession, DomService, Tools)
+- **Views pattern**: Pydantic models and data structures live in `views.py` files
+- **Events**: Event definitions in `events.py` files
+- **Browser profile**: `browser_use/browser/profile.py` — launch arguments, display configuration, extension management
+- **System prompts**: Agent prompts in `browser_use/agent/system_prompt*.md`
+
+### CDP Integration
+
+Uses [cdp-use](https://github.com/browser-use/cdp-use) for typed CDP protocol access. cdp-use only provides shallow typed interfaces for websocket calls — all CDP client/session management lives in `browser_use/browser/session.py`.
+
+CDP API usage examples:
+```python
+cdp_client.send.DOMSnapshot.enable(session_id=session_id)
+cdp_client.send.Target.attachToTarget(params=ActivateTargetParameters(targetId=target_id, flatten=True))
+cdp_client.register.Browser.downloadWillBegin(callback_func_here)  # event registration
+```
+
+Note: `cdp_client.on(...)` does not exist — use `cdp_client.register.*` for events.
+
+### Browser Configuration
+
+BrowserProfile automatically detects display size via `detect_display_configuration()`:
+- macOS: `AppKit.NSScreen`
+- Linux/Windows: `screeninfo`
+- Extension management (uBlock Origin, cookie handlers) with configurable whitelisting
+- Chrome launch argument generation/deduplication
+- Proxy support, security settings, headless/headful modes
+
+### MCP (Model Context Protocol) Integration
+
+The library supports both directions:
+1. **As MCP Server**: Exposes browser automation tools to MCP clients like Claude Desktop (`uvx browser-use[cli] --mcp`)
+2. **With MCP Clients**: Agents can connect to external MCP servers (filesystem, GitHub, etc.) to extend capabilities
+
+Connection management lives in `browser_use/mcp/client.py`.
+
+---
+
+## Development
+
+### Setup
+
+```bash
+uv venv --python 3.11
+source .venv/bin/activate
+uv sync
+```
+
+### Testing
+
+```bash
+uv run pytest -vxs tests/browser_use         # CI test suite
+uv run pytest -vxs tests/                     # all tests
+uv run pytest -vxs tests/browser_use/test_specific_test.py  # single file
+```
+
+### Quality Checks
+
+```bash
+uv run pyright                          # type checking
+uv run ruff check --fix                 # linting
+uv run ruff format                      # formatting
+uv run pre-commit run --all-files       # pre-commit hooks
+```
+
+### Code Style
+
+- Async Python throughout
+- **Tabs** for indentation (not spaces)
+- Modern Python 3.12+ typing: `str | None`, `list[str]`, `dict[str, Any]` (not `Optional`, `List`, `Dict`)
+- Console logging in separate `_log_*` methods to keep main logic clean
+- Pydantic v2 models for internal data and user-facing API parameters
+- Pydantic `model_config = ConfigDict(extra='forbid', validate_by_name=True, validate_by_alias=True)` tuned per use-case
+- `Annotated[..., AfterValidator(...)]` for validation logic instead of helper methods
+- `from uuid_extensions import uuid7str` + `id: str = Field(default_factory=uuid7str)` for ID fields
+- Runtime assertions at function boundaries to enforce constraints
+- Always use `uv` instead of `pip`
+- Use real model names — `gpt-4o` and `gpt-4` are distinct models
+- Return `ActionResult` with structured content from actions
+- Run pre-commit hooks before PRs
+
+### Testing Conventions
+
+- **No mocks** — always use real objects. The only exception is the LLM: use pytest fixtures in `conftest.py` to set up LLM responses.
+- **No real remote URLs** — use `pytest-httpserver` to set up a local test server with the HTML needed for each test.
+- Tests in `tests/browser_use/` are the CI suite, run automatically on every commit. Tests specific to an event go in `tests/browser_use/test_action_EventNameHere.py`.
+- Modern pytest-asyncio: no `@pytest.mark.asyncio` needed, just use `async` test functions. Use `loop = asyncio.get_event_loop()` when needed. Fixtures use plain `@pytest.fixture`.
+
+### Strategy for Making Changes
+
+1. Find or write tests verifying existing behavior before making changes
+2. Write failing tests for the new design, confirm they fail
+3. Implement changes, running tests as needed to verify assumptions
+4. Run the full `tests/browser_use` suite — confirm new design works and backward compatibility is preserved
+5. Condense/deduplicate test logic, scan for other test files that need updates
+6. Update relevant docs to match implementation
+
+For large refactors, prefer event buses and job queues to break systems into smaller services managing isolated state.

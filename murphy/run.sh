@@ -2,7 +2,7 @@
 # Murphy — Website Evaluation System
 #
 # Usage:
-#   ./murphy/run.sh                                    # default (prosus.com)
+#   ./murphy/run.sh                                    # default
 #   ./murphy/run.sh https://stripe.com                 # custom URL
 #   ./murphy/run.sh https://stripe.com --category saas # with category hint
 #   ./murphy/run.sh https://example.com --max-tests 5  # limit tests

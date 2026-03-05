@@ -1,7 +1,7 @@
-"""Murphy REST API — HTTP interface for Toqan integration.
+"""Murphy REST API — HTTP interface for programmatic evaluation.
 
 Exposes Murphy's evaluation pipeline as REST endpoints:
-  POST /evaluate       — combined explore + plan generation (recommended for Toqan)
+  POST /evaluate       — combined explore + plan generation
   POST /analyze        — website analysis (feature discovery)
   POST /generate-plan  — test plan generation from analysis
   POST /execute        — test execution from plan
@@ -422,7 +422,7 @@ async def _dispatch(core_fn: Any, req: Any, timeout: int) -> JSONResponse:
 
 app = FastAPI(
 	title='Murphy API',
-	description='AI-driven website evaluation — REST API for Toqan integration',
+	description='AI-driven website evaluation — REST API',
 	version='0.1.0',
 )
 
@@ -473,7 +473,7 @@ async def get_job(job_id: str, poll: int = 0) -> dict[str, Any]:
 # ─── Entrypoint ───────────────────────────────────────────────────────────────
 
 # Default request timeout: 30 minutes. Covers long-running sync evaluations.
-# Toqan's HTTPIntegration.Timeout is configured per-tool (up to 30 min for execute).
+# Long-running sync evaluations may take up to 30 min for the execute phase.
 MURPHY_REQUEST_TIMEOUT = int(os.environ.get('MURPHY_REQUEST_TIMEOUT', '1800'))
 
 

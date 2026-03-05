@@ -90,5 +90,7 @@ output/*
 
 .yaml
 
-murphy/output/test_plan.yaml
+murphy/output/
+murphy/browser_profile/
 browser_profile/
+src/

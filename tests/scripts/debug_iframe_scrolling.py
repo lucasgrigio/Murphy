@@ -12,13 +12,12 @@ from pathlib import Path
 # Add parent directory to path to import browser_use modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+# Import the mock LLM helper from conftest
 from browser_use.agent.service import Agent
 from browser_use.agent.views import ActionModel
 from browser_use.browser import BrowserProfile, BrowserSession
 from browser_use.browser.events import BrowserStateRequestEvent
-
-# Import the mock LLM helper from conftest
-from tests.ci.conftest import create_mock_llm
+from tests.browser_use.conftest import create_mock_llm
 
 
 async def debug_iframe_scrolling():

@@ -60,5 +60,10 @@ repos:
       - id: forbid-submodules
       - id: check-added-large-files
         args: ["--maxkb=600"]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
       # - id: name-tests-test
       #   args: ["--pytest-test-first"]

@@ -1,0 +1,26 @@
+name: Feature Request
+description: Suggest a new feature or improvement for Murphy
+labels: ["enhancement"]
+title: "Feature: ..."
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the feature you'd like to see.
+      placeholder: "I'd like Murphy to be able to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use Case
+      description: What problem would this feature solve? How would you use it?
+      placeholder: "When evaluating e-commerce sites, I need to..."
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or workarounds you've considered.

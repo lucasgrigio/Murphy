@@ -2,11 +2,11 @@
 
 Usage:
     murphy --url https://example.com                              # full run: detect auth → analyze → edit features → generate tests → edit tests → execute
-    murphy --url https://work.toqan.ai --auth                    # skip detection, go straight to login wait
+    murphy --url https://example.com --auth                     # skip detection, go straight to login wait
     murphy --url https://example.com --no-auth                    # skip auth detection, treat as public
-    murphy --url https://work.toqan.ai --features features.md    # skip analysis, load features from file
-    murphy --url https://work.toqan.ai --plan plan.yaml          # skip analysis + generation, load test plan
-    murphy --url https://work.toqan.ai --goal "check agent creation"
+    murphy --url https://example.com --features features.md     # skip analysis, load features from file
+    murphy --url https://example.com --plan plan.yaml           # skip analysis + generation, load test plan
+    murphy --url https://example.com --goal "check agent creation"
 """
 
 from __future__ import annotations

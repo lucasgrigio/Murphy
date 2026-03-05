@@ -1,0 +1,55 @@
+name: Bug Report
+description: Report a bug in Murphy
+labels: ["bug", "triage"]
+title: "Bug: ..."
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Murphy Version
+      description: What version of Murphy are you using? (Run `uv pip show murphy` or `git log -n 1`)
+      placeholder: "e.g. 0.11.10 or commit SHA"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description & Steps to Reproduce
+      description: A clear description of the bug and steps to reproduce it. Include screenshots if relevant.
+      placeholder: |
+        1. Ran `murphy --url https://example.com --no-auth`
+        2. Phase 1 (analysis) completed successfully
+        3. Phase 2 (test generation) crashed with the following error: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command Used
+      description: The exact murphy command you ran (redact any sensitive URLs or credentials).
+      render: shell
+      placeholder: |
+        murphy --url https://example.com --no-auth --model gpt-4o
+
+  - type: input
+    id: model
+    attributes:
+      label: LLM Model
+      description: Which LLM model are you using?
+      placeholder: "e.g. gpt-4o, claude-sonnet-4-20250514, gemini-2.0-flash, etc."
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: What OS are you running on?
+      placeholder: "e.g. macOS 15.2, Ubuntu 24.04, Windows 11, Docker"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log Output
+      description: Paste relevant log output. Set `BROWSER_USE_LOGGING_LEVEL=DEBUG` in your `.env` for detailed logs.
+      render: shell

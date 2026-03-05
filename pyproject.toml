@@ -2,7 +2,7 @@
 name = "murphy"
 description = "AI-driven website evaluation powered by browser-use"
 authors = [{ name = "MIH AI B.V." }]
-version = "0.11.10a1"
+version = "1.0.0"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
 classifiers = [
@@ -77,7 +77,7 @@ all = ["murphy[aws,oci]"]
 
 
 [project.urls]
-Repository = "https://github.com/browser-use/browser-use"
+Repository = "https://github.com/ProsusAI/Murphy"
 
 [project.scripts]
 murphy = "murphy.cli:main"  # AI-driven website evaluation (primary)
@@ -100,13 +100,15 @@ fix = true
 select = ["ASYNC", "E", "F", "FAST", "I", "PLE"]
 ignore = [
     "ASYNC109",
+    "ASYNC240",  # sync Path/os.path in async — acceptable for quick local file ops
+    "ASYNC250",  # blocking input() in async — intentional for interactive CLI prompts
     "E101",
     "E402",
     "E501",
     "F841",
     "E731",
     "W291",
-] # TODO: determine if adding timeouts to all the unbounded async functions is needed / worth-it so we can un-ignore ASYNC109
+]
 unfixable = ["E101", "E402", "E501", "F841", "E731"]
 
 [tool.ruff.format]
