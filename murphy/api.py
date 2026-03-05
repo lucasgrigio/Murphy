@@ -125,7 +125,7 @@ class ExecuteRequest(BaseModel):
 	evaluate_job_id: str | None = None
 	goal: str | None = None
 	model: str = 'gpt-5-mini'
-	judge_model: str = 'gpt-4o'
+	judge_model: str = 'gpt-5-mini'
 	max_steps: int = 15
 	max_concurrent: int = 3
 	webhook_url: str | None = None
@@ -149,7 +149,7 @@ class EvaluateRequest(BaseModel):
 	goal: str | None = None
 	max_tests: int = 8
 	model: str = 'gpt-5-mini'
-	judge_model: str = 'gpt-4o'
+	judge_model: str = 'gpt-5-mini'
 	async_mode: bool = Field(False, alias='async')
 	webhook_url: str | None = None
 

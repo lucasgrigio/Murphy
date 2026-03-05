@@ -21,8 +21,12 @@ def _make_scenario(**overrides) -> TestScenario:
 
 def _make_verdict(**overrides) -> JudgeVerdict:
 	defaults = dict(
-		reasoning='Done', verdict=True, failure_reason='',
-		impossible_task=False, reached_captcha=False, failure_category=None,
+		reasoning='Done',
+		verdict=True,
+		failure_reason='',
+		impossible_task=False,
+		reached_captcha=False,
+		failure_category=None,
 	)
 	defaults.update(overrides)
 	return JudgeVerdict(**defaults)
@@ -30,8 +34,12 @@ def _make_verdict(**overrides) -> JudgeVerdict:
 
 def _make_result(**overrides) -> TestResult:
 	defaults = dict(
-		scenario=_make_scenario(), success=True, judgement=_make_verdict(),
-		actions=[], errors=[], duration=2.0,
+		scenario=_make_scenario(),
+		success=True,
+		judgement=_make_verdict(),
+		actions=[],
+		errors=[],
+		duration=2.0,
 	)
 	defaults.update(overrides)
 	return TestResult(**defaults)

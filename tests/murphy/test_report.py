@@ -47,8 +47,12 @@ def _make_scenario(**overrides) -> TestScenario:
 
 def _make_verdict(**overrides) -> JudgeVerdict:
 	defaults = dict(
-		reasoning='Steps completed', verdict=True, failure_reason='',
-		impossible_task=False, reached_captcha=False, failure_category=None,
+		reasoning='Steps completed',
+		verdict=True,
+		failure_reason='',
+		impossible_task=False,
+		reached_captcha=False,
+		failure_category=None,
 	)
 	defaults.update(overrides)
 	return JudgeVerdict(**defaults)
@@ -56,8 +60,12 @@ def _make_verdict(**overrides) -> JudgeVerdict:
 
 def _make_result(**overrides) -> TestResult:
 	defaults = dict(
-		scenario=_make_scenario(), success=True, judgement=_make_verdict(),
-		actions=[], errors=[], duration=5.0,
+		scenario=_make_scenario(),
+		success=True,
+		judgement=_make_verdict(),
+		actions=[],
+		errors=[],
+		duration=5.0,
 	)
 	defaults.update(overrides)
 	return TestResult(**defaults)
@@ -71,8 +79,22 @@ def _make_report(**overrides) -> EvaluationReport:
 			site_name='Example',
 			category='saas',
 			description='An example site',
-			key_pages=[PageInfo(url='https://example.com', title='Home', purpose='Landing', page_type='homepage', interactive_elements=[])],
-			features=[Feature(name='Search', category='search', description='Search', page_url='https://example.com', elements=['search bar'], testability='testable', importance='core')],
+			key_pages=[
+				PageInfo(
+					url='https://example.com', title='Home', purpose='Landing', page_type='homepage', interactive_elements=[]
+				)
+			],
+			features=[
+				Feature(
+					name='Search',
+					category='search',
+					description='Search',
+					page_url='https://example.com',
+					elements=['search bar'],
+					testability='testable',
+					importance='core',
+				)
+			],
 			identified_user_flows=['Browse -> Search'],
 		),
 		results=[_make_result()],
@@ -297,10 +319,17 @@ def test_write_markdown_report_includes_failure_sections():
 		judgement=_make_verdict(verdict=False, failure_reason='Search returned no results', failure_category='website_issue'),
 		failure_category='website_issue',
 	)
-	report = _make_report(results=[failed_result], summary=ReportSummary(
-		total=1, passed=0, failed=1, pass_rate=0.0, website_issues=1,
-		by_priority={'high': {'passed': 0, 'failed': 1}},
-	))
+	report = _make_report(
+		results=[failed_result],
+		summary=ReportSummary(
+			total=1,
+			passed=0,
+			failed=1,
+			pass_rate=0.0,
+			website_issues=1,
+			by_priority={'high': {'passed': 0, 'failed': 1}},
+		),
+	)
 	with tempfile.TemporaryDirectory() as tmpdir:
 		content = write_markdown_report(report, Path(tmpdir)).read_text()
 		assert 'Website Issues' in content
@@ -316,6 +345,7 @@ def test_write_markdown_report_includes_features_discovered():
 
 def test_write_markdown_report_includes_executive_summary():
 	from murphy.models import ExecutiveSummary
+
 	es = ExecutiveSummary(
 		overall_assessment='Good site overall.',
 		key_findings=['Search works', 'Login broken'],
@@ -330,8 +360,10 @@ def test_write_markdown_report_includes_executive_summary():
 
 def test_write_markdown_report_feedback_quality_index():
 	fq = FeedbackQualityScore(
-		response_present=True, response_timely=False,
-		response_clear=True, response_actionable=False,
+		response_present=True,
+		response_timely=False,
+		response_clear=True,
+		response_actionable=False,
 		feedback_type='inline_message',
 	)
 	result = _make_result(feedback_quality=fq)

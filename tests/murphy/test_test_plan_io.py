@@ -25,10 +25,7 @@ def _make_scenario(**overrides) -> TestScenario:
 
 
 def _make_plan(n: int = 3) -> TestPlan:
-	scenarios = [
-		_make_scenario(name=f'Test {i}', test_persona='happy_path' if i == 0 else 'adversarial')
-		for i in range(n)
-	]
+	scenarios = [_make_scenario(name=f'Test {i}', test_persona='happy_path' if i == 0 else 'adversarial') for i in range(n)]
 	return TestPlan(scenarios=scenarios)
 
 

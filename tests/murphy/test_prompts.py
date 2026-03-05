@@ -18,10 +18,28 @@ def _make_analysis() -> WebsiteAnalysis:
 		site_name='Acme',
 		category='saas',
 		description='A SaaS tool',
-		key_pages=[PageInfo(url='https://acme.com', title='Home', purpose='Landing', page_type='homepage', interactive_elements=[])],
+		key_pages=[
+			PageInfo(url='https://acme.com', title='Home', purpose='Landing', page_type='homepage', interactive_elements=[])
+		],
 		features=[
-			Feature(name='Search', category='search', description='Search', page_url='https://acme.com', elements=['search bar'], testability='testable', importance='core'),
-			Feature(name='Export', category='media', description='Export', page_url='https://acme.com', elements=['button'], testability='untestable', importance='peripheral'),
+			Feature(
+				name='Search',
+				category='search',
+				description='Search',
+				page_url='https://acme.com',
+				elements=['search bar'],
+				testability='testable',
+				importance='core',
+			),
+			Feature(
+				name='Export',
+				category='media',
+				description='Export',
+				page_url='https://acme.com',
+				elements=['button'],
+				testability='untestable',
+				importance='peripheral',
+			),
 		],
 		identified_user_flows=['Search -> View'],
 	)

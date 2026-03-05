@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
 	from browser_use.browser.session import BrowserSession
 	from browser_use.llm import ChatOpenAI
 
+logger = logging.getLogger(__name__)
+
 
 async def detect_auth_required(browser_session: 'BrowserSession', llm: 'ChatOpenAI', url: str) -> bool:
 	"""Navigate to URL and use a passive LLM call to detect if login is required."""
-	print(f'\n{"=" * 60}')
-	print(f'Checking if {url} requires login...')
-	print(f'{"=" * 60}\n')
+	logger.info('\n%s', '=' * 60)
+	logger.info('Checking if %s requires login...', url)
+	logger.info('%s\n', '=' * 60)
 
 	await browser_session.navigate_to(url)
 	await asyncio.sleep(2)  # let the page settle
@@ -24,9 +27,9 @@ async def detect_auth_required(browser_session: 'BrowserSession', llm: 'ChatOpen
 	auth_required = not is_content
 
 	if auth_required:
-		print('Login gate detected — authentication required.')
+		logger.info('Login gate detected — authentication required.')
 	else:
-		print('Public/usable content detected — no login needed.')
+		logger.info('Public/usable content detected — no login needed.')
 
 	return auth_required
 
@@ -100,9 +103,9 @@ async def wait_for_manual_login(
 	already_navigated: bool = False,
 ) -> None:
 	"""Wait for the user to log in manually, then wait for explicit confirmation to proceed."""
-	print(f'\n{"=" * 60}')
-	print('Phase 0: Manual login')
-	print(f'{"=" * 60}\n')
+	logger.info('\n%s', '=' * 60)
+	logger.info('Manual login')
+	logger.info('%s\n', '=' * 60)
 
 	if not already_navigated:
 		await browser_session.navigate_to(url)

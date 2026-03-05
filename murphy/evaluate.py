@@ -11,12 +11,15 @@ All logic has been decomposed into focused modules:
 
 import argparse
 import asyncio
+import logging
 from pathlib import Path
 
 from murphy.analysis import analyze_website
 from murphy.execution import execute_tests, execute_tests_with_session
 from murphy.generation import explore_and_generate_plan, generate_tests
 from murphy.summary import build_summary, classify_failure, generate_executive_summary, write_reports_and_print
+
+logger = logging.getLogger(__name__)
 
 
 # Backward-compat wrapper: old signature was (url, llm, browser_session, goal=None)
@@ -51,7 +54,7 @@ async def main():
 	parser.add_argument('url', nargs='?', default='https://example.com', help='Website URL to evaluate')
 	parser.add_argument('--category', help='Site category hint (ecommerce, saas, content, social)')
 	parser.add_argument('--model', default='gpt-5-mini', help='OpenAI model for agent tasks (default: gpt-5-mini)')
-	parser.add_argument('--judge-model', default='gpt-4o', help='OpenAI model for judging verdicts (default: gpt-4o)')
+	parser.add_argument('--judge-model', default='gpt-5-mini', help='OpenAI model for judging verdicts (default: gpt-5-mini)')
 	parser.add_argument('--max-tests', type=int, default=8, help='Max test scenarios (default: 8)')
 	parser.add_argument('--output-dir', default='./murphy/output', help='Output directory for reports')
 	parser.add_argument('--goal', help='Free-text goal to bias test generation')
@@ -67,8 +70,8 @@ async def main():
 		plan_path = Path(args.plan)
 		url, test_plan = load_test_plan(plan_path)
 		if url != args.url:
-			print(f'WARNING: Plan URL ({url}) differs from positional url ({args.url}). Using positional.')
-		print(f'Loaded {len(test_plan.scenarios)} scenarios from {plan_path}')
+			logger.warning('Plan URL (%s) differs from positional url (%s). Using positional.', url, args.url)
+		logger.info('Loaded %d scenarios from %s', len(test_plan.scenarios), plan_path)
 		analysis = WebsiteAnalysis(
 			site_name=args.url,
 			category='unknown',
@@ -86,7 +89,7 @@ async def main():
 
 		# Save test plan to YAML
 		plan_path = save_test_plan(args.url, test_plan, output_dir)
-		print(f'\n  Test plan saved: {plan_path}')
+		logger.info('\n  Test plan saved: %s', plan_path)
 
 	def _on_test_complete(results: list) -> None:
 		write_reports_and_print(args.url, analysis, results, output_dir)
@@ -98,7 +101,7 @@ async def main():
 		try:
 			exec_summary = await generate_executive_summary(args.url, analysis, results, build_summary(results), llm)
 		except Exception as e:
-			print(f'  Warning: Could not generate executive summary: {e}')
+			logger.warning('Could not generate executive summary: %s', e)
 			exec_summary = None
 		write_reports_and_print(args.url, analysis, results, output_dir, executive_summary=exec_summary)
 		return
@@ -120,7 +123,7 @@ async def main():
 
 	runner, port = await start_server(state)
 
-	print('  Press Ctrl+C to stop the server.\n')
+	logger.info('  Press Ctrl+C to stop the server.\n')
 	try:
 		# Keep alive until Ctrl+C or execution completes and user is done
 		while True:
@@ -132,7 +135,7 @@ async def main():
 						args.url, analysis, state.results, build_summary(state.results), llm
 					)
 				except Exception as e:
-					print(f'  Warning: Could not generate executive summary: {e}')
+					logger.warning('Could not generate executive summary: %s', e)
 					exec_summary = None
 				write_reports_and_print(args.url, analysis, state.results, output_dir, executive_summary=exec_summary)
 				state._reports_written = True  # type: ignore[attr-defined]

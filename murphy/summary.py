@@ -1,5 +1,6 @@
 """Murphy — results classification, summary building, and report writing."""
 
+import logging
 from pathlib import Path
 from typing import Literal
 
@@ -11,6 +12,8 @@ from murphy.models import (
 	WebsiteAnalysis,
 )
 from murphy.report import write_full_report
+
+logger = logging.getLogger(__name__)
 
 
 def classify_failure(result: TestResult) -> Literal['website_issue', 'test_limitation'] | None:
@@ -136,13 +139,13 @@ def write_reports_and_print(
 	output_dir: Path,
 	executive_summary: ExecutiveSummary | None = None,
 ) -> None:
-	"""Write JSON + markdown reports and print summary to console."""
+	"""Write JSON + markdown reports and log summary to console."""
 	json_path, md_path = write_full_report(url, analysis, results, output_dir, executive_summary=executive_summary)
 	summary = build_summary(results)
 
-	print(f'\n{"=" * 60}')
-	print('Evaluation Complete')
-	print(f'{"=" * 60}')
-	print(f'\n  Pass rate: {summary.pass_rate}% ({summary.passed}/{summary.total})')
-	print(f'  JSON report: {json_path}')
-	print(f'  Markdown report: {md_path}')
+	logger.info('\n%s', '=' * 60)
+	logger.info('Evaluation Complete')
+	logger.info('%s', '=' * 60)
+	logger.info('\n  Pass rate: %s%% (%d/%d)', summary.pass_rate, summary.passed, summary.total)
+	logger.info('  JSON report: %s', json_path)
+	logger.info('  Markdown report: %s', md_path)

@@ -4,30 +4,16 @@
 
 | File | Purpose |
 |------|---------|
-| `__init__.py` | Package exports and version |
-| `__main__.py` | `python -m murphy` entry point |
-| `cli.py` | CLI entry point and 2-phase orchestration |
-| `api.py` | REST API server (FastAPI) |
-| `evaluate.py` | Backward-compatible re-exports |
-| `analysis.py` | Website analysis — feature discovery via browser agent |
-| `generation.py` | Test plan generation — feature-based and exploration-first paths |
-| `execution.py` | Test execution — sequential and parallel with session pooling |
+| `cli.py` | CLI entry point and orchestration |
+| `evaluate.py` | Core evaluation logic (exploration, plan generation, test execution) |
 | `judge.py` | LLM judge for pass/fail verdicts |
-| `summary.py` | Results classification, summary building, and report writing |
-| `report.py` | Markdown and JSON report generation |
-| `quality.py` | Test plan quality validation and retry logic |
-| `prompts.py` | All LLM prompt text |
 | `models.py` | Pydantic models (TestPlan, TestResult, ScenarioExecutionVerdict, etc.) |
-| `config.py` | Shared configuration constants |
-| `auth.py` | Auth detection and manual login flow |
+| `report.py` | Markdown report generation |
+| `server.py` | Web UI server |
 | `actions.py` | Custom agent actions (domain access, DOM refresh) |
 | `session_utils.py` | Session management helpers |
 | `patches.py` | Monkey-patches for schema resolution |
-| `fixtures.py` | Dummy upload files for test scenarios |
-| `features_io.py` | Read/write features markdown files |
-| `test_plan_io.py` | Read/write YAML test plans |
-| `server.py` | Interactive web UI server |
-| `regen_report.py` | Script to regenerate markdown from existing JSON report |
+| `fixtures.py` + `fixtures/` | Dummy upload files for test scenarios |
 
 ## Browser-Use Engine (`browser_use/`)
 

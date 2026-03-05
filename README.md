@@ -1,13 +1,13 @@
 # Murphy — AI-Driven Website Evaluation
 
-Murphy is a 3-phase agent that automatically evaluates websites: **analyze** the site to discover features, **generate** test scenarios, then **execute** them with an AI browser agent. It produces structured evaluation reports with pass/fail results, failure categorization, and actionable summaries.
+Murphy automatically evaluates websites in two phases: **plan** (discover features and generate test scenarios) and **execute** (run tests in a real browser with an AI judge). It produces structured evaluation reports with pass/fail results, failure categorization, and actionable summaries.
 
 Built on top of [browser-use](https://github.com/browser-use/browser-use) (AI browser automation library).
 
 ## Prerequisites
 
 - Python >= 3.11
-- An LLM API key — default model is `gpt-4o`, so you'll need `OPENAI_API_KEY` (or pass `--model` for another provider)
+- An LLM API key — default model is `gpt-5-mini`, so you'll need `OPENAI_API_KEY` (or pass `--model` for another provider)
 
 ## Setup (without Docker)
 
@@ -60,7 +60,7 @@ The script mounts `murphy/` and `.env` into the container and runs `python -m mu
 murphy --url https://example.com
 
 # With a specific goal (biases test generation toward that area)
-murphy --url https://example.com --goal "check if agent creation works"
+murphy --url https://example.com --goal "test the checkout flow"
 
 # Site requires login — opens browser for manual auth first
 murphy --url https://example.com --auth
@@ -80,15 +80,13 @@ python -m murphy --url https://example.com
 
 ## How It Works
 
-Murphy runs three phases with human-in-the-loop pauses between each:
+Murphy runs two phases with human-in-the-loop pauses for review:
 
-**Phase 1 — Analyze:** An AI agent navigates the site, discovers pages, and catalogs every user-facing feature. Saves `<site>_features.md`. Murphy pauses so you can review/edit the features file before continuing.
+**Phase 1 — Plan:** An AI agent navigates the site, discovers pages, and catalogs features. Murphy saves an editable `<site>_features.md` and pauses for review. Then an LLM reads the features and produces test scenarios with steps and success criteria, saving an editable `test_plan.yaml` with another pause for review.
 
-**Phase 2 — Generate Tests:** An LLM reads the features and produces test scenarios with steps and success criteria. Saves `test_plan.yaml`. Murphy pauses again for review/editing.
+**Phase 2 — Execute:** An AI agent runs each test scenario in a real browser, and a judge LLM evaluates pass/fail. Saves `evaluation_report.json` and `evaluation_report.md`.
 
-**Phase 3 — Execute:** An AI agent runs each test scenario in a real browser, and a judge LLM evaluates pass/fail. Saves `evaluation_report.json` and `evaluation_report.md`.
-
-You can resume from any phase by passing `--features` or `--plan` with a previously generated (and optionally edited) file.
+You can resume from any point by passing `--features` or `--plan` with a previously generated (and optionally edited) file.
 
 ## Output
 
@@ -106,17 +104,20 @@ Default output directory: `./murphy/output/`
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--url` | *(required)* | Target URL to evaluate |
-| `--goal` | | Free-text goal to bias test generation (e.g. `"check if agent creation works"`) |
+| `--goal` | | Free-text goal to bias test generation (e.g. `"test the checkout flow"`) |
 | `--auth` | `false` | Skip auto-detection, go straight to manual login wait |
 | `--no-auth` | `false` | Skip auth detection entirely, treat site as public |
-| `--features` | | Path to existing features markdown (skips Phase 1) |
-| `--plan` | | Path to existing YAML test plan (skips Phases 1 & 2) |
+| `--features` | | Path to existing features markdown (skips feature discovery) |
+| `--plan` | | Path to existing YAML test plan (skips planning, goes straight to execution) |
 | `--max-tests` | `8` | Maximum number of test scenarios to generate |
-| `--model` | `gpt-4o` | LLM model to use |
+| `--model` | `gpt-5-mini` | LLM model for agent tasks |
+| `--judge-model` | `gpt-5-mini` | LLM model for judging verdicts |
 | `--output-dir` | `./murphy/output` | Output directory for all generated files |
 | `--category` | | Site category hint (`ecommerce`, `saas`, `content`, `social`) |
 | `--ui` | `false` | Launch interactive web UI instead of terminal output |
 | `--no-highlights` | `false` | Disable bounding boxes on interactive elements in the browser |
+| `--max-steps` | `30` | Max agent steps per exploration/execution phase |
+| `--parallel` | `3` | Number of tests to run concurrently |
 
 ## Interactive UI
 
@@ -140,8 +141,6 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details on the codebase str
 ### Setup
 
 ```bash
-uv venv --python 3.11
-source .venv/bin/activate
 uv sync
 ```
 

@@ -1,5 +1,6 @@
 """Murphy — website analysis (Phase 1 of evaluation)."""
 
+import logging
 import sys
 
 from browser_use import Agent
@@ -7,6 +8,8 @@ from browser_use.browser.session import BrowserSession
 from browser_use.llm import ChatOpenAI
 from murphy.models import WebsiteAnalysis
 from murphy.prompts import build_analysis_prompt
+
+logger = logging.getLogger(__name__)
 
 
 async def analyze_website(
@@ -21,9 +24,9 @@ async def analyze_website(
 	When browser_session is None, creates a temporary agent (unauthenticated).
 	When provided, reuses the session (authenticated).
 	"""
-	print(f'\n{"=" * 60}')
-	print(f'Phase 1: Analyzing {url}')
-	print(f'{"=" * 60}\n')
+	logger.info('\n%s', '=' * 60)
+	logger.info('Analyzing %s', url)
+	logger.info('%s\n', '=' * 60)
 
 	is_authenticated = browser_session is not None
 	task_prompt = build_analysis_prompt(url, category, goal, is_authenticated)
@@ -44,12 +47,12 @@ async def analyze_website(
 	if not result:
 		if is_authenticated:
 			raise RuntimeError('Analysis agent returned no result')
-		print('ERROR: Analysis agent returned no result')
+		logger.error('Analysis agent returned no result')
 		sys.exit(1)
 
 	analysis = WebsiteAnalysis.model_validate_json(result)
-	print(f'\nAnalysis complete: {analysis.site_name} ({analysis.category})')
-	print(f'  Pages found: {len(analysis.key_pages)}')
-	print(f'  Features found: {len(analysis.features)}')
-	print(f'  User flows: {len(analysis.identified_user_flows)}')
+	logger.info('\nAnalysis complete: %s (%s)', analysis.site_name, analysis.category)
+	logger.info('  Pages found: %d', len(analysis.key_pages))
+	logger.info('  Features found: %d', len(analysis.features))
+	logger.info('  User flows: %d', len(analysis.identified_user_flows))
 	return analysis

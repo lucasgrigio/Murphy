@@ -315,13 +315,21 @@ def test_interactive_element_rejects_invalid_type():
 
 def test_feedback_quality_score_valid_types():
 	valid_types = [
-		'none', 'silent_handling', 'visual_state_change', 'inline_message',
-		'toast_notification', 'modal_dialog', 'page_redirect', 'error_page',
+		'none',
+		'silent_handling',
+		'visual_state_change',
+		'inline_message',
+		'toast_notification',
+		'modal_dialog',
+		'page_redirect',
+		'error_page',
 	]
 	for ft in valid_types:
 		fq = FeedbackQualityScore(
-			response_present=True, response_timely=True,
-			response_clear=True, response_actionable=True,
+			response_present=True,
+			response_timely=True,
+			response_clear=True,
+			response_actionable=True,
 			feedback_type=ft,
 		)
 		assert fq.feedback_type == ft
@@ -330,8 +338,10 @@ def test_feedback_quality_score_valid_types():
 def test_feedback_quality_score_rejects_invalid_type():
 	with pytest.raises(ValidationError):
 		FeedbackQualityScore(
-			response_present=True, response_timely=True,
-			response_clear=True, response_actionable=True,
+			response_present=True,
+			response_timely=True,
+			response_clear=True,
+			response_actionable=True,
 			feedback_type='popup',
 		)
 
@@ -341,8 +351,12 @@ def test_feedback_quality_score_rejects_invalid_type():
 
 def test_report_summary():
 	s = ReportSummary(
-		total=10, passed=7, failed=3, pass_rate=70.0,
-		website_issues=2, test_limitations=1,
+		total=10,
+		passed=7,
+		failed=3,
+		pass_rate=70.0,
+		website_issues=2,
+		test_limitations=1,
 		by_priority={'high': {'passed': 5, 'failed': 1}, 'medium': {'passed': 2, 'failed': 2}},
 	)
 	assert s.total == 10
@@ -372,7 +386,10 @@ def test_evaluation_report_construction():
 		analysis=_make_analysis(),
 		results=[_make_result()],
 		summary=ReportSummary(
-			total=1, passed=1, failed=0, pass_rate=100.0,
+			total=1,
+			passed=1,
+			failed=0,
+			pass_rate=100.0,
 			by_priority={'high': {'passed': 1, 'failed': 0}},
 		),
 	)

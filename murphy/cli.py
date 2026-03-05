@@ -6,13 +6,14 @@ Usage:
     murphy --url https://example.com --no-auth                    # skip auth detection, treat as public
     murphy --url https://example.com --features features.md     # skip analysis, load features from file
     murphy --url https://example.com --plan plan.yaml           # skip analysis + generation, load test plan
-    murphy --url https://example.com --goal "check agent creation"
+    murphy --url https://example.com --goal "test the checkout flow"
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -25,6 +26,8 @@ if TYPE_CHECKING:
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 # Persistent browser profile directory — stores cookies/session across runs so login is only needed once.
 BROWSER_PROFILE_DIR = Path(__file__).parent / 'browser_profile'
 
@@ -35,14 +38,14 @@ def main() -> int:
 		description='Murphy — AI-driven website evaluation',
 	)
 	parser.add_argument('--url', required=True, help='Target URL to evaluate')
-	parser.add_argument('--goal', help="Free-text goal to bias test generation (e.g. 'check if agent creation works')")
+	parser.add_argument('--goal', help="Free-text goal to bias test generation (e.g. 'test the checkout flow')")
 	parser.add_argument('--auth', action='store_true', help='Skip auto-detection and go straight to manual login wait')
 	parser.add_argument('--no-auth', action='store_true', help='Skip auth detection entirely, treat site as public')
 	parser.add_argument('--features', help='Path to existing features markdown (skips analysis, goes to test generation)')
 	parser.add_argument('--plan', help='Path to existing YAML test plan (skips analysis + test generation)')
 	parser.add_argument('--max-tests', type=int, default=8, help='Max test scenarios (default: 8)')
 	parser.add_argument('--model', default='gpt-5-mini', help='OpenAI model for agent tasks (default: gpt-5-mini)')
-	parser.add_argument('--judge-model', default='gpt-4o', help='OpenAI model for judging verdicts (default: gpt-4o)')
+	parser.add_argument('--judge-model', default='gpt-5-mini', help='OpenAI model for judging verdicts (default: gpt-5-mini)')
 	parser.add_argument('--output-dir', default='./murphy/output', help='Output directory for reports')
 	parser.add_argument('--category', help='Site category hint (ecommerce, saas, content, social)')
 	parser.add_argument('--ui', action='store_true', help='Launch interactive web UI instead of running in terminal')
@@ -65,7 +68,7 @@ def main() -> int:
 	except KeyboardInterrupt:
 		return 0
 	except Exception as e:
-		print(f'ERROR: {e}', file=sys.stderr)
+		logger.error('ERROR: %s', e)
 		return 1
 
 
@@ -114,15 +117,15 @@ async def _async_main(args: argparse.Namespace) -> None:
 		if args.auth:
 			# --auth flag: skip detection, go straight to login wait
 			await wait_for_manual_login(browser_session, llm, args.url)
-			print('Continuing with authenticated session...\n')
+			logger.info('Continuing with authenticated session...\n')
 		elif not args.no_auth:
 			# Auto-detect: navigate and let the LLM decide
 			auth_required = await detect_auth_required(browser_session, llm, args.url)
 			if auth_required:
 				await wait_for_manual_login(browser_session, llm, args.url, already_navigated=True)
-				print('Continuing with authenticated session...\n')
+				logger.info('Continuing with authenticated session...\n')
 
-		# ── Plan generation ──
+		# ── Phase 1: Plan generation ──
 		use_exploration_first = bool(args.goal and not args.features and not args.plan)
 
 		if args.plan:
@@ -131,8 +134,8 @@ async def _async_main(args: argparse.Namespace) -> None:
 			assert plan_path.exists(), f'Plan file not found: {plan_path}'
 			url, test_plan = load_test_plan(plan_path)
 			if url != args.url:
-				print(f'WARNING: Plan URL ({url}) differs from --url ({args.url}). Using --url.')
-			print(f'Loaded {len(test_plan.scenarios)} scenarios from {plan_path}')
+				logger.warning('Plan URL (%s) differs from --url (%s). Using --url.', url, args.url)
+			logger.info('Loaded %d scenarios from %s', len(test_plan.scenarios), plan_path)
 		elif use_exploration_first:
 			# Exploration-first path: explore → summarize → synthesize plan
 			test_plan = await explore_and_generate_plan(
@@ -146,7 +149,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 
 			# Save test plan to YAML
 			plan_path = save_test_plan(args.url, test_plan, output_dir)
-			print(f'\n  Test plan saved: {plan_path}')
+			logger.info('\n  Test plan saved: %s', plan_path)
 			print('  Review and edit the file, then press Enter to continue.')
 			print('  (Add, remove, or modify test scenarios as needed.)\n')
 
@@ -155,21 +158,21 @@ async def _async_main(args: argparse.Namespace) -> None:
 
 			# Re-read in case user edited
 			_, test_plan = load_test_plan(plan_path)
-			print(f'  Using {len(test_plan.scenarios)} test scenarios.\n')
+			logger.info('  Using %d test scenarios.\n', len(test_plan.scenarios))
 		else:
 			if args.features:
 				# Load features from existing file
 				features_path = Path(args.features)
 				assert features_path.exists(), f'Features file not found: {features_path}'
 				analysis = read_features_markdown(features_path)
-				print(f'Loaded {len(analysis.features)} features from {features_path}')
+				logger.info('Loaded %d features from %s', len(analysis.features), features_path)
 			else:
 				# Run analysis agent (feature-discovery path)
 				analysis = await analyze_website(args.url, llm, goal=args.goal, browser_session=browser_session)
 
 				# Save features markdown
 				features_path = write_features_markdown(analysis, output_dir)
-				print(f'\n  Features saved: {features_path}')
+				logger.info('\n  Features saved: %s', features_path)
 				print('  Review and edit the file, then press Enter to continue.')
 				print('  (Add, remove, or modify features as needed.)\n')
 
@@ -178,14 +181,14 @@ async def _async_main(args: argparse.Namespace) -> None:
 
 				# Re-read in case user edited
 				analysis = read_features_markdown(features_path)
-				print(f'  Using {len(analysis.features)} features for test generation.\n')
+				logger.info('  Using %d features for test generation.\n', len(analysis.features))
 
-			# ── Phase 2: Generate tests ──
+			# ── Generate tests ──
 			test_plan = await generate_tests(args.url, analysis, llm, args.max_tests, goal=args.goal)
 
 			# Save test plan to YAML
 			plan_path = save_test_plan(args.url, test_plan, output_dir)
-			print(f'\n  Test plan saved: {plan_path}')
+			logger.info('\n  Test plan saved: %s', plan_path)
 			print('  Review and edit the file, then press Enter to continue.')
 			print('  (Add, remove, or modify test scenarios as needed.)\n')
 
@@ -194,7 +197,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 
 			# Re-read in case user edited
 			_, test_plan = load_test_plan(plan_path)
-			print(f'  Using {len(test_plan.scenarios)} test scenarios.\n')
+			logger.info('  Using %d test scenarios.\n', len(test_plan.scenarios))
 
 		# Ensure analysis exists for report writing (--goal and --plan paths skip feature discovery)
 		if analysis is None:
@@ -213,7 +216,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 				identified_user_flows=[],
 			)
 
-		# ── Phase 3: Execute ──
+		# ── Phase 2: Execute ──
 		def _on_test_complete(results: list['TestResult']) -> None:
 			if analysis:
 				write_reports_and_print(args.url, analysis, results, output_dir)
@@ -234,7 +237,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 			if analysis:
 				write_reports_and_print(args.url, analysis, results, output_dir)
 			else:
-				_print_results_summary(results)
+				_log_results_summary(results)
 			return
 
 		# ── Server UI mode (--ui) ──
@@ -267,7 +270,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 
 		runner, port = await start_server(state)
 
-		print('  Press Ctrl+C to stop the server.\n')
+		logger.info('  Press Ctrl+C to stop the server.\n')
 		try:
 			while True:
 				await asyncio.sleep(1)
@@ -275,7 +278,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 					if analysis:
 						write_reports_and_print(args.url, analysis, state.results, output_dir)
 					else:
-						_print_results_summary(state.results)
+						_log_results_summary(state.results)
 					state._reports_written = True  # type: ignore[attr-defined]
 		except KeyboardInterrupt:
 			pass
@@ -287,14 +290,14 @@ async def _async_main(args: argparse.Namespace) -> None:
 			await browser_session.kill()
 
 
-def _print_results_summary(results: list['TestResult']) -> None:
+def _log_results_summary(results: list['TestResult']) -> None:
 	from murphy.summary import build_summary
 
 	summary = build_summary(results)
-	print(f'\n{"=" * 60}')
-	print('Evaluation Complete')
-	print(f'{"=" * 60}')
-	print(f'\n  Pass rate: {summary.pass_rate}% ({summary.passed}/{summary.total})')
+	logger.info('\n%s', '=' * 60)
+	logger.info('Evaluation Complete')
+	logger.info('%s', '=' * 60)
+	logger.info('\n  Pass rate: %s%% (%d/%d)', summary.pass_rate, summary.passed, summary.total)
 
 
 if __name__ == '__main__':

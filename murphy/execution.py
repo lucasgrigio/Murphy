@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import re
 import traceback
 from collections.abc import Callable
@@ -21,6 +22,8 @@ from murphy.models import (
 )
 from murphy.prompts import build_execution_prompt
 from murphy.summary import classify_failure
+
+logger = logging.getLogger(__name__)
 
 # Hard cap on parallel browser sessions to avoid resource exhaustion
 MAX_PARALLEL_SESSIONS = 5
@@ -140,7 +143,7 @@ async def _execute_single_test(
 	from murphy.actions import register_domain_access_action, register_refresh_dom_action
 	from murphy.session_utils import prepare_session_for_task
 
-	print(f'\n--- Test {index}/{total}: {scenario.name} ---')
+	logger.info('\n--- Test %d/%d: %s ---', index, total, scenario.name)
 
 	try:
 		# Stabilize session between tests
@@ -180,7 +183,7 @@ async def _execute_single_test(
 		# Merge: use judge verdict as authoritative, but overlay agent's evaluations
 		success = judgement.verdict
 		status = 'PASS' if success else 'FAIL'
-		print(f'  Result: {status} ({history.total_duration_seconds():.1f}s)')
+		logger.info('  Result: %s (%.1fs)', status, history.total_duration_seconds())
 
 		# Prefer judge evaluations (third-party observer), fall back to agent's
 		process_eval = judgement.process_evaluation or (verdict.process_evaluation if verdict else '')
@@ -226,7 +229,7 @@ async def _execute_single_test(
 		test_result.failure_category = classify_failure(test_result)
 	except Exception as exc:
 		tb = traceback.format_exc()
-		print(f'  CRASH: {type(exc).__name__}: {exc}')
+		logger.error('  CRASH: %s: %s', type(exc).__name__, exc)
 		test_result = TestResult(
 			scenario=scenario,
 			success=False,
@@ -350,7 +353,7 @@ async def _cleanup_session_pool(sessions: list[BrowserSession], original_session
 			pass
 
 
-# ─── Phase 3: Execute & Report ─────────────────────────────────────────────────
+# ─── Execute & Report ─────────────────────────────────────────────────────────
 
 
 async def execute_tests(
@@ -364,9 +367,9 @@ async def execute_tests(
 	"""Execute tests without a pre-existing session (creates its own)."""
 	from browser_use.browser.profile import BrowserProfile
 
-	print(f'\n{"=" * 60}')
-	print(f'Phase 3: Executing {len(test_plan.scenarios)} tests')
-	print(f'{"=" * 60}\n')
+	logger.info('\n%s', '=' * 60)
+	logger.info('Executing %d tests', len(test_plan.scenarios))
+	logger.info('%s\n', '=' * 60)
 
 	browser_session = BrowserSession(browser_profile=BrowserProfile(keep_alive=True))
 	await browser_session.start()
@@ -375,7 +378,7 @@ async def execute_tests(
 
 	try:
 		for i, scenario in enumerate(test_plan.scenarios, 1):
-			print(f'\n--- Test {i}/{len(test_plan.scenarios)}: {scenario.name} ---')
+			logger.info('\n--- Test %d/%d: %s ---', i, len(test_plan.scenarios), scenario.name)
 			if progress_state is not None:
 				progress_state.current_test = i
 
@@ -392,7 +395,7 @@ async def execute_tests(
 				judgement = await murphy_judge(history, scenario, llm, start_url=url, judge_llm=judge_llm)
 				success = judgement.verdict
 				status = 'PASS' if success else 'FAIL'
-				print(f'  Result: {status} ({history.total_duration_seconds():.1f}s)')
+				logger.info('  Result: %s (%.1fs)', status, history.total_duration_seconds())
 
 				all_actions = history.model_actions()
 
@@ -416,7 +419,7 @@ async def execute_tests(
 				test_result.failure_category = classify_failure(test_result)
 			except Exception as exc:
 				tb = traceback.format_exc()
-				print(f'  CRASH: {type(exc).__name__}: {exc}')
+				logger.error('  CRASH: %s: %s', type(exc).__name__, exc)
 				test_result = TestResult(
 					scenario=scenario,
 					success=False,
@@ -434,7 +437,7 @@ async def execute_tests(
 				try:
 					save_callback(results)
 				except Exception as e:
-					print(f'  ⚠️  save_callback failed: {e}')
+					logger.warning('  save_callback failed: %s', e)
 
 			# Navigate back to homepage between tests (direct CDP, no LLM needed)
 			try:
@@ -474,9 +477,9 @@ async def execute_tests_with_session(
 	"""
 	total = len(test_plan.scenarios)
 	mode = 'parallel' if max_concurrent > 1 else 'sequential'
-	print(f'\n{"=" * 60}')
-	print(f'Phase 3: Executing {total} tests ({mode}, max_concurrent={max_concurrent})')
-	print(f'{"=" * 60}\n')
+	logger.info('\n%s', '=' * 60)
+	logger.info('Executing %d tests (%s, max_concurrent=%d)', total, mode, max_concurrent)
+	logger.info('%s\n', '=' * 60)
 
 	if max_concurrent <= 1:
 		# ── Sequential path (unchanged behavior) ──
@@ -503,7 +506,7 @@ async def execute_tests_with_session(
 				try:
 					save_callback(results)
 				except Exception as e:
-					print(f'  ⚠️  save_callback failed: {e}')
+					logger.warning('  save_callback failed: %s', e)
 
 		return results
 
@@ -552,7 +555,7 @@ async def execute_tests_with_session(
 						try:
 							save_callback(completed)
 						except Exception as e:
-							print(f'  ⚠️  save_callback failed: {e}')
+							logger.warning('  save_callback failed: %s', e)
 			finally:
 				session_queue.put_nowait(session)
 

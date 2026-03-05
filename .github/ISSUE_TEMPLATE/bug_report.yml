@@ -19,8 +19,8 @@ body:
       description: A clear description of the bug and steps to reproduce it. Include screenshots if relevant.
       placeholder: |
         1. Ran `murphy --url https://example.com --no-auth`
-        2. Phase 1 (analysis) completed successfully
-        3. Phase 2 (test generation) crashed with the following error: ...
+        2. Plan generation completed successfully
+        3. Test execution crashed with the following error: ...
     validations:
       required: true
 
@@ -31,14 +31,14 @@ body:
       description: The exact murphy command you ran (redact any sensitive URLs or credentials).
       render: shell
       placeholder: |
-        murphy --url https://example.com --no-auth --model gpt-4o
+        murphy --url https://example.com --no-auth --model gpt-5-mini
 
   - type: input
     id: model
     attributes:
       label: LLM Model
       description: Which LLM model are you using?
-      placeholder: "e.g. gpt-4o, claude-sonnet-4-20250514, gemini-2.0-flash, etc."
+      placeholder: "e.g. gpt-5-mini, claude-sonnet-4-20250514, gemini-2.0-flash, etc."
 
   - type: input
     id: os

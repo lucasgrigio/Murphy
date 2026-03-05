@@ -122,7 +122,6 @@ def create_history_gif(
 		regular_font = ImageFont.load_default()
 		title_font = ImageFont.load_default()
 
-
 	# Load logo if requested
 	logo = None
 	if show_logo:

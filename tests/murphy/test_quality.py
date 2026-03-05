@@ -23,21 +23,41 @@ def _make_diverse_plan(n: int = 6) -> TestPlan:
 	"""Create a plan that passes all quality checks."""
 	scenarios = [
 		_make_scenario(name='Happy path login', test_persona='happy_path', priority='critical'),
-		_make_scenario(name='Confused novice tries login', test_persona='confused_novice', priority='medium',
+		_make_scenario(
+			name='Confused novice tries login',
+			test_persona='confused_novice',
+			priority='medium',
 			description='Novice submits empty login form',
-			steps_description='1. Navigate to login page\n2. Click submit without filling fields'),
-		_make_scenario(name='Adversarial XSS in login', test_persona='adversarial', priority='high',
+			steps_description='1. Navigate to login page\n2. Click submit without filling fields',
+		),
+		_make_scenario(
+			name='Adversarial XSS in login',
+			test_persona='adversarial',
+			priority='high',
 			description='Inject XSS payload into login form',
-			steps_description='1. Navigate to login page\n2. Type <script>alert(1)</script> in email'),
-		_make_scenario(name='Edge case long input', test_persona='edge_case', priority='medium',
+			steps_description='1. Navigate to login page\n2. Type <script>alert(1)</script> in email',
+		),
+		_make_scenario(
+			name='Edge case long input',
+			test_persona='edge_case',
+			priority='medium',
 			description='Submit extremely long input in login field',
-			steps_description='1. Navigate to login page\n2. Enter 500 chars in email field'),
-		_make_scenario(name='Explorer unusual nav', test_persona='explorer', priority='low',
+			steps_description='1. Navigate to login page\n2. Enter 500 chars in email field',
+		),
+		_make_scenario(
+			name='Explorer unusual nav',
+			test_persona='explorer',
+			priority='low',
 			description='Navigate to login via unusual path',
-			steps_description='1. Navigate to footer links\n2. Find login link'),
-		_make_scenario(name='Impatient rapid clicks', test_persona='impatient_user', priority='medium',
+			steps_description='1. Navigate to footer links\n2. Find login link',
+		),
+		_make_scenario(
+			name='Impatient rapid clicks',
+			test_persona='impatient_user',
+			priority='medium',
 			description='Click login button rapidly',
-			steps_description='1. Navigate to login page\n2. Click submit repeatedly'),
+			steps_description='1. Navigate to login page\n2. Click submit repeatedly',
+		),
 	]
 	return TestPlan(scenarios=scenarios[:n])
 

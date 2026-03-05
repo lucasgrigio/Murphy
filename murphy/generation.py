@@ -1,5 +1,6 @@
 """Murphy — test plan generation (Phase 2 of evaluation)."""
 
+import logging
 from typing import Any
 
 from browser_use import Agent
@@ -10,6 +11,8 @@ from murphy.models import TestPlan
 from murphy.prompts import build_plan_synthesis_prompt, build_test_generation_prompt, build_test_generation_system_message
 from murphy.quality import plan_quality_issues
 
+logger = logging.getLogger(__name__)
+
 
 async def generate_tests(
 	url: str,
@@ -19,9 +22,9 @@ async def generate_tests(
 	goal: str | None = None,
 ) -> TestPlan:
 	"""Feature-discovery test generation: analysis → test plan with quality checks."""
-	print(f'\n{"=" * 60}')
-	print('Phase 2: Generating test scenarios')
-	print(f'{"=" * 60}\n')
+	logger.info('\n%s', '=' * 60)
+	logger.info('Generating test scenarios')
+	logger.info('%s\n', '=' * 60)
 
 	prompt = build_test_generation_prompt(url, analysis, max_tests, goal)
 	system_msg = SystemMessage(content=build_test_generation_system_message())
@@ -62,7 +65,7 @@ async def generate_tests(
 			quality_issues = plan_quality_issues(quality_task, plan)
 			if not quality_issues:
 				break
-			print(f'  Quality issues found ({len(quality_issues)}), regenerating...')
+			logger.info('  Quality issues found (%d), regenerating...', len(quality_issues))
 		else:
 			break
 
@@ -85,17 +88,17 @@ async def explore_and_generate_plan(
 	from murphy.prompts import build_exploration_prompt
 	from murphy.session_utils import prepare_session_for_task
 
-	print(f'\n{"=" * 60}')
-	print('Exploration-first plan generation')
-	print(f'  Task: {task}')
-	print(f'  URL: {url}')
-	print(f'{"=" * 60}\n')
+	logger.info('\n%s', '=' * 60)
+	logger.info('Exploration-first plan generation')
+	logger.info('  Task: %s', task)
+	logger.info('  URL: %s', url)
+	logger.info('%s\n', '=' * 60)
 
 	# Step 1: Prepare session
 	await prepare_session_for_task(session, url, force_navigate=False)
 
 	# Step 2: Run exploration agent
-	print('Phase 1: Exploring UI...')
+	logger.info('Exploring UI...')
 	explore_agent = Agent(
 		task=build_exploration_prompt(task, url),
 		llm=llm,
@@ -115,10 +118,10 @@ async def explore_and_generate_plan(
 		explore_history.model_actions(),
 		url,
 	)
-	print(f'\n  Exploration complete. Summarized {len(explore_history.model_actions())} actions.\n')
+	logger.info('\n  Exploration complete. Summarized %d actions.\n', len(explore_history.model_actions()))
 
 	# Step 4: Generate plan with quality checks
-	print('Phase 2: Synthesizing test plan...')
+	logger.info('Synthesizing test plan...')
 	synthesis_prompt = build_plan_synthesis_prompt(task, url, exploration_context, max_scenarios)
 
 	best_plan: TestPlan | None = None
@@ -164,7 +167,7 @@ async def explore_and_generate_plan(
 			quality_issues = plan_quality_issues(task, plan)
 			if not quality_issues:
 				break
-			print(f'  Quality issues found ({len(quality_issues)}), regenerating...')
+			logger.info('  Quality issues found (%d), regenerating...', len(quality_issues))
 		else:
 			break
 
@@ -228,7 +231,7 @@ def summarize_exploration_from_actions(actions: list[dict[str, Any]], url: str) 
 
 
 def _log_plan_summary(plan: TestPlan) -> None:
-	"""Print generated plan summary."""
-	print(f'Generated {len(plan.scenarios)} test scenarios:')
+	"""Log generated plan summary."""
+	logger.info('Generated %d test scenarios:', len(plan.scenarios))
 	for i, s in enumerate(plan.scenarios, 1):
-		print(f'  {i}. [{s.priority.upper()}] [{s.test_persona}] {s.name} ({s.feature_category})')
+		logger.info('  %d. [%s] [%s] %s (%s)', i, s.priority.upper(), s.test_persona, s.name, s.feature_category)

@@ -6,6 +6,7 @@ then shows results after execution completes.
 
 import asyncio
 import html
+import logging
 import webbrowser
 from typing import Any
 
@@ -13,6 +14,8 @@ from aiohttp import web
 
 from murphy.models import ReportSummary, TestPlan, TestResult, WebsiteAnalysis
 from murphy.report import _format_path, _suggest_fix
+
+logger = logging.getLogger(__name__)
 
 # ─── State shared between handlers ───────────────────────────────────────────
 
@@ -122,7 +125,7 @@ async def start_server(state: ServerState) -> tuple[web.AppRunner, int]:
 	port: int = sockets[0].getsockname()[1]
 
 	url = f'http://localhost:{port}'
-	print(f'\n  Review tests at: {url}\n')
+	logger.info('\n  Review tests at: %s\n', url)
 	webbrowser.open(url)
 
 	return runner, port
