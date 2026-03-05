@@ -47,8 +47,14 @@ def register_refresh_dom_action(tools: 'Tools', session: 'BrowserSession') -> No
 
 	@tools.action(
 		description=(
-			'Force a fresh DOM state read without page reload. '
-			'Use this when UI appears empty before trying navigate/reload again.'
+			'Read the current page state without a full DOM rebuild or page reload. '
+			'Returns: current URL, page title, document.readyState, number of interactive elements, and visible text length. '
+			'Use this to confirm: (1) navigation landed on the right URL, (2) page has finished loading (readyState=complete), '
+			'(3) page is not empty (interactive_elements > 0). '
+			'Call this AFTER any action that changes the page — navigate, form submit, button click, modal open/close — '
+			'before attempting to read or interact with the updated content. '
+			'NOTE: this does NOT return the full DOM or element list. '
+			'To verify specific text or elements are present after a UI change, follow up with search_page or find_elements.'
 		),
 	)
 	async def refresh_dom_state() -> ActionResult:
