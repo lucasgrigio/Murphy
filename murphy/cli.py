@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING
 
 from dotenv import load_dotenv
 
+from browser_use.config import CONFIG
+
 if TYPE_CHECKING:
 	from murphy.models import TestPlan, TestResult
 	from murphy.server import ServerState
@@ -29,7 +31,9 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Persistent browser profile directory — stores cookies/session across runs so login is only needed once.
-BROWSER_PROFILE_DIR = Path(__file__).parent / 'browser_profile'
+# In Docker, use a container-local path because mounted volumes (including /data) don't support
+# Chrome's SingletonLock symlinks on macOS Docker Desktop (virtiofs).
+BROWSER_PROFILE_DIR = Path('/tmp/murphy_browser_profile') if CONFIG.IN_DOCKER else Path(__file__).parent / 'browser_profile'
 
 
 def main() -> int:
@@ -108,7 +112,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 			browser_profile=BrowserProfile(
 				user_data_dir=BROWSER_PROFILE_DIR,
 				keep_alive=True,
-				headless=False,
+				headless=CONFIG.IN_DOCKER,
 				dom_highlight_elements=not args.no_highlights,
 			)
 		)
