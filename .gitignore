@@ -33,6 +33,7 @@ dist/
 
 # Track fixture data
 !murphy/fixture_data/
+*.exe
 
 # Secrets and sensitive files
 secrets.env

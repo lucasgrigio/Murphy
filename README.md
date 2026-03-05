@@ -9,7 +9,18 @@ Built on top of [browser-use](https://github.com/browser-use/browser-use) (AI br
 - Python >= 3.11
 - An LLM API key — default model is `gpt-5-mini`, so you'll need `OPENAI_API_KEY` (or pass `--model` for another provider)
 
-## Setup (without Docker)
+## Which setup should I use?
+
+| | **Local (uv)** | **Docker** |
+|---|---|---|
+| **Best for** | Sites requiring login (`--auth`), development | Public sites, reproducible environments |
+| **Auth support** | Full — opens a visible browser for manual login | No — browser runs headless with no visible window, so `--auth` cannot work |
+| **Review pauses** | Works — you edit files on disk and press Enter | Works — files are on a mounted volume, press Enter in the same terminal |
+| **Requires** | Python >= 3.11, uv, Chromium | Docker |
+
+**Rule of thumb:** use **local** if the site requires authentication. Both setups are interactive — Murphy pauses for you to review and edit the generated features and test plan before continuing.
+
+## Setup (local)
 
 **1. Install [uv](https://docs.astral.sh/uv/):**
 ```bash
@@ -37,7 +48,9 @@ Then set your key:
 OPENAI_API_KEY=sk-...
 ```
 
-## Setup (with Docker)
+## Setup (Docker)
+
+> **Note:** Docker runs the browser in headless mode. The `--auth` flag (manual login) will not work — use the local setup above if your site requires login.
 
 **1. Build the image:**
 ```bash
@@ -48,34 +61,31 @@ docker build -f docker/Dockerfile . -t murphy --no-cache
 
 **3. Run via the helper script:**
 ```bash
-./murphy/run.sh https://example.com [options]
+./murphy/run.sh --url https://example.com [options]
 ```
 
 The script mounts `murphy/` and `.env` into the container and runs `python -m murphy` with your arguments.
 
 ## Usage
 
+All examples below use `uv run murphy`. If running via Docker, replace with `./murphy/run.sh`.
+
 ```bash
 # Full run: auto-detect auth -> analyze site -> generate tests -> execute
-murphy --url https://example.com
+uv run murphy --url https://example.com
 
 # With a specific goal (biases test generation toward that area)
-murphy --url https://example.com --goal "test the checkout flow"
+uv run murphy --url https://example.com --goal "test the checkout flow"
 
-# Site requires login — opens browser for manual auth first
-murphy --url https://example.com --auth
+# Site requires login — opens browser for manual auth first (local only, not Docker)
+uv run murphy --url https://example.com --auth
 
 # Public site, skip auth detection entirely
-murphy --url https://example.com --no-auth
+uv run murphy --url https://example.com --no-auth
 
 # Resume from previously generated/edited files
-murphy --url https://example.com --features murphy/output/example_com_features.md
-murphy --url https://example.com --plan murphy/output/test_plan.yaml
-```
-
-You can also run as a Python module:
-```bash
-python -m murphy --url https://example.com
+uv run murphy --url https://example.com --features murphy/output/example_com_features.md
+uv run murphy --url https://example.com --plan murphy/output/test_plan.yaml
 ```
 
 ## How It Works

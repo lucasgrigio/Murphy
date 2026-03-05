@@ -10,9 +10,10 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-docker run --rm \
+docker run --rm -it \
+  --shm-size=1g \
   -v /tmp/browseruse-data:/data \
   -v "$PROJECT_DIR/murphy":/app/murphy \
   -v "$PROJECT_DIR/.env":/app/.env \
   --entrypoint python \
-  browseruse -m murphy "$@"
+  murphy -m murphy "$@"
