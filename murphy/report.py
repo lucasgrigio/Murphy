@@ -245,6 +245,14 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 	else:
 		lines += ['**Validation Performed:**', 'No explicit validation evidence recorded.', '']
 
+	# ── Missing signals (shown on all tests — UX gaps even on passes) ──
+	missing_signals = getattr(r, 'missing_signals', []) or []
+	if missing_signals:
+		lines += ['**Confirmation signals not observed (UX gaps):**']
+		for s in missing_signals:
+			lines.append(f'- {s}')
+		lines.append('')
+
 	# ── Evaluation dimensions ──
 	if r.process_evaluation:
 		lines += ['**Process evaluation:**', f'{r.process_evaluation}', '']
