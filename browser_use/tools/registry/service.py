@@ -174,7 +174,6 @@ class Registry(Generic[Context]):
 
 			# Prepare arguments for original function
 			call_args = []
-			call_kwargs = {}
 
 			# Handle Type 1 pattern (first arg is the param model)
 			if param_model_provided and parameters and parameters[0].name not in special_param_names:
@@ -392,7 +391,7 @@ class Registry(Generic[Context]):
 			# Call with params and unpacked special context
 			try:
 				return await action.function(params=validated_params, **special_context)
-			except Exception as e:
+			except Exception:
 				raise
 
 		except ValueError as e:

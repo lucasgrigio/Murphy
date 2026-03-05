@@ -298,7 +298,7 @@ class MessageManager:
 		self.state.read_state_images = []  # Clear images from previous step
 
 		action_results = ''
-		result_len = len(result)
+		len(result)
 		read_state_idx = 0
 
 		for idx, action_result in enumerate(result):

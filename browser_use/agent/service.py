@@ -1637,7 +1637,6 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 					judge_log += f'   Failure Reason: {judgement.failure_reason}\n'
 				if judgement.reached_captcha:
 					judge_log += '   🤖 Captcha Detected: Agent encountered captcha challenges\n'
-					judge_log += '   👉 🥷 Use Browser Use Cloud for the most stealth browser infra: https://docs.browser-use.com/customize/browser/remote\n'
 				judge_log += f'   {judgement.reasoning}\n'
 				self.logger.info(judge_log)
 
@@ -2045,7 +2044,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		if not (self.logger.isEnabledFor(logging.DEBUG) and parsed.action):
 			return
 
-		action_count = len(parsed.action)
+		len(parsed.action)
 
 		# Collect action details
 		action_details = []
@@ -2694,7 +2693,6 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		     to pre-action values. Any change aborts the remaining queue.
 		"""
 		results: list[ActionResult] = []
-		time_elapsed = 0
 		total_actions = len(actions)
 
 		assert self.browser_session is not None, 'BrowserSession is not set up'
@@ -2704,14 +2702,12 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 				and self.browser_session._cached_browser_state_summary.dom_state is not None
 			):
 				cached_selector_map = dict(self.browser_session._cached_browser_state_summary.dom_state.selector_map)
-				cached_element_hashes = {e.parent_branch_hash() for e in cached_selector_map.values()}
+				{e.parent_branch_hash() for e in cached_selector_map.values()}
 			else:
 				cached_selector_map = {}
-				cached_element_hashes = set()
 		except Exception as e:
 			self.logger.error(f'Error getting cached selector map: {e}')
 			cached_selector_map = {}
-			cached_element_hashes = set()
 
 		for i, action in enumerate(actions):
 			if i > 0:
@@ -2752,7 +2748,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 				)
 
 				time_end = time.time()
-				time_elapsed = time_end - time_start
+				time_end - time_start
 
 				if result.error:
 					await self._demo_mode_log(
@@ -3451,7 +3447,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 					hist_node = historical_elem.node_name.lower() if historical_elem else ''
 					similar_elements = []
 					if historical_elem and historical_elem.attributes:
-						hist_aria = historical_elem.attributes.get('aria-label', '')
+						historical_elem.attributes.get('aria-label', '')
 						for idx, elem in selector_map.items():
 							if elem.node_name.lower() == hist_node and elem.attributes:
 								elem_aria = elem.attributes.get('aria-label', '')

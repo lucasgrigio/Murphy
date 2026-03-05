@@ -420,7 +420,8 @@ def write_markdown_report(report: EvaluationReport, output_dir: Path) -> Path:
 			fq = r.feedback_quality
 			assert fq is not None
 			score = sum([fq.response_present, fq.response_timely, fq.response_clear, fq.response_actionable])
-			yes_no = lambda b: 'Yes' if b else 'No'
+			def yes_no(b):
+				return 'Yes' if b else 'No'
 			persona_label = r.scenario.test_persona.replace('_', ' ').title()
 			lines.append(
 				f'| {r.scenario.name[:40]} | {persona_label} | {yes_no(fq.response_present)} | {yes_no(fq.response_timely)} | '

@@ -723,7 +723,6 @@ class EnhancedDOMTreeNode:
 		# Get scroll and client rects from snapshot data
 		scroll_rects = self.snapshot_node.scrollRects
 		client_rects = self.snapshot_node.clientRects
-		bounds = self.snapshot_node.bounds
 
 		if not scroll_rects or not client_rects:
 			return None

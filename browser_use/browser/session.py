@@ -2918,16 +2918,15 @@ class BrowserSession(BaseModel):
 		if not self.agent_focus_target_id:
 			return
 
-		cdp_session = await self.get_or_create_cdp_session()
+		await self.get_or_create_cdp_session()
 		# await cdp_session.cdp_client.send.Network.setExtraHTTPHeaders(params={'headers': headers}, session_id=cdp_session.session_id)
 		raise NotImplementedError('Not implemented yet')
 
 	async def _cdp_grant_permissions(self, permissions: list[str], origin: str | None = None) -> None:
 		"""Grant permissions using CDP Browser.grantPermissions."""
-		params = {'permissions': permissions}
 		# if origin:
 		# 	params['origin'] = origin
-		cdp_session = await self.get_or_create_cdp_session()
+		await self.get_or_create_cdp_session()
 		# await cdp_session.cdp_client.send.Browser.grantPermissions(params=params, session_id=cdp_session.session_id)
 		raise NotImplementedError('Not implemented yet')
 
@@ -3374,7 +3373,7 @@ class BrowserSession(BaseModel):
 			if target_id in target_sessions:
 				assert target_id is not None
 				# Use existing session
-				session_id = target_sessions[target_id]
+				target_sessions[target_id]
 				# Return the client with session attached (don't change focus)
 				return await self.get_or_create_cdp_session(target_id, focus=False)
 

@@ -174,9 +174,8 @@ class DOMEvalSerializer:
 			attributes_str = DOMEvalSerializer._build_compact_attributes(node.original_node)
 
 			# Decide if this element should be shown
-			is_semantic = tag in SEMANTIC_ELEMENTS
-			has_useful_attrs = bool(attributes_str)
-			has_text_content = DOMEvalSerializer._has_direct_text(node)
+			bool(attributes_str)
+			DOMEvalSerializer._has_direct_text(node)
 			has_children = len(node.children) > 0
 
 			# Build compact element representation

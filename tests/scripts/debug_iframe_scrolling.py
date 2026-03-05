@@ -202,14 +202,11 @@ async def debug_iframe_scrolling():
 		async def wrapped_act(action, session):
 			result = await original_act(action, session)
 			# Capture state after each action
-			action_type = 'unknown'
 			if hasattr(action, 'input_text') and action.input_text:
-				action_type = 'input_text'
 				await asyncio.sleep(1)  # Give time for DOM to update
 				state = await capture_dom_state('AFTER INPUT_TEXT')
 				states.append(state)
 			elif hasattr(action, 'scroll') and action.scroll:
-				action_type = 'scroll'
 				await asyncio.sleep(2)  # Give more time after scroll
 				state = await capture_dom_state('AFTER SCROLL')
 				states.append(state)

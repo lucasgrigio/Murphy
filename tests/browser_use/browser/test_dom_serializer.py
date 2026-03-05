@@ -94,24 +94,6 @@ class TestDOMSerializer:
 
 		# Create mock LLM actions that will click elements from each category
 		# We'll generate actions dynamically after we know the indices
-		actions = [
-			f"""
-			{{
-				"thinking": "I'll navigate to the DOM test page",
-				"evaluation_previous_goal": "Starting task",
-				"memory": "Navigating to test page",
-				"next_goal": "Navigate to test page",
-				"action": [
-					{{
-						"navigate": {{
-							"url": "{base_url}/dom-test-main",
-							"new_tab": false
-						}}
-					}}
-				]
-			}}
-			"""
-		]
 		await tools.navigate(url=f'{base_url}/dom-test-main', new_tab=False, browser_session=browser_session)
 
 		import asyncio
@@ -309,7 +291,7 @@ class TestDOMSerializer:
 			browser_session=browser_session,
 		)
 
-		history = await agent.run(max_steps=2)
+		await agent.run(max_steps=2)
 
 		# Get current browser state to access selector_map
 		browser_state_summary = await browser_session.get_browser_state_summary(

@@ -147,7 +147,7 @@ class CreateAgentStepEvent(BaseEvent):
 	) -> 'CreateAgentStepEvent':
 		"""Create a CreateAgentStepEvent from agent step data"""
 		# Get first action details if available
-		first_action = model_output.action[0] if model_output.action else None
+		model_output.action[0] if model_output.action else None
 
 		# Extract current state from model output
 		current_state = model_output.current_state if hasattr(model_output, 'current_state') else None

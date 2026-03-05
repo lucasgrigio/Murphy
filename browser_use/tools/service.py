@@ -558,7 +558,7 @@ class Tools(Generic[Context]):
 				)
 			except BrowserError as e:
 				return handle_browser_error(e)
-			except Exception as e:
+			except Exception:
 				error_msg = f'Failed to click at coordinates ({params.coordinate_x}, {params.coordinate_y}).'
 				return ActionResult(error=error_msg)
 
@@ -1370,7 +1370,7 @@ You will be given a query and the markdown of a webpage that has been filtered t
 				msg = f'🔍  {memory}'
 				logger.info(msg)
 				return ActionResult(extracted_content=memory, long_term_memory=memory)
-			except Exception as e:
+			except Exception:
 				# Text not found
 				msg = f"Text '{text}' not found or not visible on page"
 				logger.info(msg)

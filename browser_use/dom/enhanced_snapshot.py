@@ -93,7 +93,6 @@ def build_snapshot_lookup(
 
 			# Find corresponding layout node
 			cursor_style = None
-			is_visible = None
 			bounding_box = None
 			computed_styles = {}
 

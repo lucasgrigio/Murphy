@@ -1,41 +1,27 @@
 # syntax=docker/dockerfile:1
 # check=skip=SecretsUsedInArgOrEnv
 
-# This is the Dockerfile for browser-use, it bundles the following dependencies:
-#     python3, pip, playwright, chromium, browser-use and its dependencies.
+# This is the Dockerfile for Murphy, it bundles the following dependencies:
+#     python3, pip, playwright, chromium, murphy and its dependencies.
 # Usage:
-#     git clone https://github.com/browser-use/browser-use.git && cd browser-use
-#     docker build . -t browseruse --no-cache
-#     docker run -v "$PWD/data":/data browseruse
-#     docker run -v "$PWD/data":/data browseruse --version
-# Multi-arch build:
-#     docker buildx create --use
-#     docker buildx build . --platform=linux/amd64,linux/arm64--push -t browseruse/browseruse:some-tag
-#
-# Read more: https://docs.browser-use.com
+#     git clone https://github.com/ProsusAI/Murphy.git && cd Murphy
+#     docker build -f docker/Dockerfile . -t murphy --no-cache
+#     docker run -v "$PWD/data":/data murphy
 
 #########################################################################################
 
 
 FROM python:3.12-slim
 
-LABEL name="browseruse" \
-    maintainer="Nick Sweeting <dockerfile@browser-use.com>" \
-    description="Make websites accessible for AI agents. Automate tasks online with ease." \
-    homepage="https://github.com/browser-use/browser-use" \
-    documentation="https://docs.browser-use.com" \
-    org.opencontainers.image.title="browseruse" \
-    org.opencontainers.image.vendor="browseruse" \
-    org.opencontainers.image.description="Make websites accessible for AI agents. Automate tasks online with ease." \
-    org.opencontainers.image.source="https://github.com/browser-use/browser-use" \
-    com.docker.image.source.entrypoint="Dockerfile" \
-    com.docker.desktop.extension.api.version=">= 1.4.7" \
-    com.docker.desktop.extension.icon="https://avatars.githubusercontent.com/u/192012301?s=200&v=4" \
-    com.docker.extension.publisher-url="https://browser-use.com" \
-    com.docker.extension.screenshots='[{"alt": "Screenshot of CLI splashscreen", "url": "https://github.com/user-attachments/assets/3606d851-deb1-439e-ad90-774e7960ded8"}, {"alt": "Screenshot of CLI running", "url": "https://github.com/user-attachments/assets/d018b115-95a4-4ac5-8259-b750bc5f56ad"}]' \
-    com.docker.extension.detailed-description='See here for detailed documentation: https://docs.browser-use.com' \
-    com.docker.extension.changelog='See here for release notes: https://github.com/browser-use/browser-use/releases' \
-    com.docker.extension.categories='web,utility-tools,ai'
+LABEL name="murphy" \
+    maintainer="MIH AI B.V." \
+    description="AI-driven website evaluation powered by browser-use." \
+    homepage="https://github.com/ProsusAI/Murphy" \
+    org.opencontainers.image.title="murphy" \
+    org.opencontainers.image.vendor="MIH AI B.V." \
+    org.opencontainers.image.description="AI-driven website evaluation powered by browser-use." \
+    org.opencontainers.image.source="https://github.com/ProsusAI/Murphy" \
+    com.docker.image.source.entrypoint="docker/Dockerfile"
 
 ARG TARGETPLATFORM
 ARG TARGETOS

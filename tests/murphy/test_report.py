@@ -5,8 +5,8 @@ from pathlib import Path
 
 from murphy.models import (
 	EvaluationReport,
-	FeedbackQualityScore,
 	Feature,
+	FeedbackQualityScore,
 	JudgeVerdict,
 	PageInfo,
 	ReportSummary,
@@ -17,16 +17,15 @@ from murphy.models import (
 from murphy.report import (
 	ActionMetrics,
 	_compute_metrics,
+	_form_field_label,
 	_format_metrics_line,
 	_format_path,
-	_form_field_label,
 	_slugify,
 	_suggest_fix,
 	copy_screenshots_to_output,
 	write_json_report,
 	write_markdown_report,
 )
-
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -15,7 +15,7 @@ Go to https://browser-use.github.io/stress-tests/challenges/react-native-web-for
 
 
 async def main():
-	browser = BrowserSession(
+	BrowserSession(
 		browser_profile=BrowserProfile(
 			window_size=ViewportSize(width=1100, height=1000),
 		)

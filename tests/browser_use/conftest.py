@@ -42,7 +42,7 @@ def setup_test_environment():
 	"""
 
 	# Create a temporary directory for test config (but not for extensions)
-	config_dir = tempfile.mkdtemp(prefix='browseruse_tests_')
+	tempfile.mkdtemp(prefix='browseruse_tests_')
 
 	original_env = {}
 	test_env_vars = {

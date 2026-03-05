@@ -34,7 +34,7 @@ def create_mock_llm(
 	"""
 	tools = Tools()
 	ActionModel = tools.registry.create_action_model()
-	AgentOutputWithActions = AgentOutput.type_with_custom_actions(ActionModel)
+	AgentOutput.type_with_custom_actions(ActionModel)
 
 	llm = AsyncMock(spec=BaseChatModel)
 	llm.model = model_name

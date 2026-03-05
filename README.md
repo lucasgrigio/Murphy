@@ -125,11 +125,6 @@ Launch the web UI with:
 murphy --url https://example.com --ui
 ```
 
-Requires the `cli` extra:
-```bash
-uv sync --extra cli
-```
-
 The UI lets you watch test execution in real time, review results interactively, and re-run individual tests.
 
 ---

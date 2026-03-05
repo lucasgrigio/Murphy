@@ -459,7 +459,7 @@ class TestParamsModelArgsAndKwargs:
 			try:
 				# logger.info('Attempting to call with both params and extra_args (should fail):')
 				await _select_cell_or_range(**params, **extra_args)
-			except TypeError as e:
+			except TypeError:
 				# logger.info(f'Expected error: {e}')
 
 				# Remove browser_session from params to avoid the conflict
@@ -476,7 +476,7 @@ class TestParamsModelArgsAndKwargs:
 		# Test the original problematic version
 		# logger.info('\n--- Testing original problematic version ---')
 		try:
-			result1 = await registry.execute_action(
+			await registry.execute_action(
 				'select_cell_or_range',
 				{'cell_or_range': 'A1:F100'},
 				browser_session=browser_session,  # type: ignore
@@ -488,7 +488,7 @@ class TestParamsModelArgsAndKwargs:
 		# Test the fixed version (using positional args)
 		# logger.info('\n--- Testing fixed version (positional args) ---')
 		try:
-			result2 = await registry.execute_action(
+			await registry.execute_action(
 				'select_cell_or_range_fixed',
 				{'cell_or_range': 'A1:F100'},
 				browser_session=browser_session,  # type: ignore
@@ -500,7 +500,7 @@ class TestParamsModelArgsAndKwargs:
 		# Test with kwargs version that simulates what Registry.execute_action does
 		# logger.info('\n--- Testing kwargs simulation version ---')
 		try:
-			result3 = await registry.execute_action(
+			await registry.execute_action(
 				'select_with_kwargs',
 				{'cell_or_range': 'A1:F100'},
 				browser_session=browser_session,  # type: ignore
@@ -521,7 +521,6 @@ class TestParamsModelArgsAndKwargs:
 
 			# If we were to modify Registry.execute_action:
 			# 1. Check if the function parameter needs browser_session
-			parameter_names = ['browser_session', 'cell_or_range']
 			browser_keys = ['browser_session', 'browser', 'browser_context']
 
 			# Create params dict
@@ -541,7 +540,7 @@ class TestParamsModelArgsAndKwargs:
 			# return await action.function(**param_dict, **extra_args)
 
 			# Call directly to test
-			result3 = await select_cell_or_range(**param_dict, **extra_args)
+			await select_cell_or_range(**param_dict, **extra_args)
 			# logger.info(f'Success with our fix! Result: {result3}')
 		except Exception as e:
 			logger.error(f'Error with our manual test: {str(e)}')

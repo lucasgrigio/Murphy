@@ -169,63 +169,7 @@ class AboutBlankWatchdog(BaseWatchdog):
 					loadingOverlay.style.zIndex = '99999';
 					loadingOverlay.style.overflow = 'hidden';
 
-					// Create the image element
-					const img = document.createElement('img');
-					img.src = 'https://cf.browser-use.com/logo.svg';
-					img.alt = 'Browser-Use';
-					img.style.width = '200px';
-					img.style.height = 'auto';
-					img.style.position = 'absolute';
-					img.style.left = '0px';
-					img.style.top = '0px';
-					img.style.zIndex = '2';
-					img.style.opacity = '0.8';
-
-					loadingOverlay.appendChild(img);
 					document.body.appendChild(loadingOverlay);
-
-					// DVD screensaver bounce logic
-					let x = Math.random() * (window.innerWidth - 300);
-					let y = Math.random() * (window.innerHeight - 300);
-					let dx = 1.2 + Math.random() * 0.4; // px per frame
-					let dy = 1.2 + Math.random() * 0.4;
-					// Randomize direction
-					if (Math.random() > 0.5) dx = -dx;
-					if (Math.random() > 0.5) dy = -dy;
-
-					function animate() {{
-						const imgWidth = img.offsetWidth || 300;
-						const imgHeight = img.offsetHeight || 300;
-						x += dx;
-						y += dy;
-
-						if (x <= 0) {{
-							x = 0;
-							dx = Math.abs(dx);
-						}} else if (x + imgWidth >= window.innerWidth) {{
-							x = window.innerWidth - imgWidth;
-							dx = -Math.abs(dx);
-						}}
-						if (y <= 0) {{
-							y = 0;
-							dy = Math.abs(dy);
-						}} else if (y + imgHeight >= window.innerHeight) {{
-							y = window.innerHeight - imgHeight;
-							dy = -Math.abs(dy);
-						}}
-
-						img.style.left = `${{x}}px`;
-						img.style.top = `${{y}}px`;
-
-						requestAnimationFrame(animate);
-					}}
-					animate();
-
-					// Responsive: update bounds on resize
-					window.addEventListener('resize', () => {{
-						x = Math.min(x, window.innerWidth - img.offsetWidth);
-						y = Math.min(y, window.innerHeight - img.offsetHeight);
-					}});
 
 					// Add a little CSS for smoothness
 					const style = document.createElement('style');

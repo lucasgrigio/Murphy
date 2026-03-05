@@ -16,7 +16,7 @@ async def main():
 
 	from browser_use.tokens.service import TokenCost
 
-	tk = TokenCost().register_llm(llm)
+	TokenCost().register_llm(llm)
 
 	class Output(BaseModel):
 		reasoning: str

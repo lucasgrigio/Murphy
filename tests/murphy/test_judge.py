@@ -7,7 +7,6 @@ from murphy.judge import (
 )
 from murphy.models import PERSONA_REGISTRY, TraitLevel
 
-
 # ─── build_judge_trait_context ────────────────────────────────────────────────
 
 

@@ -97,7 +97,6 @@ async def _async_main(args: argparse.Namespace) -> None:
 
 	browser_session: BrowserSession | None = None
 	analysis: WebsiteAnalysis | None = None
-	authenticated = False
 
 	try:
 		# ── Auth detection / login wait ──
@@ -115,14 +114,12 @@ async def _async_main(args: argparse.Namespace) -> None:
 		if args.auth:
 			# --auth flag: skip detection, go straight to login wait
 			await wait_for_manual_login(browser_session, llm, args.url)
-			authenticated = True
 			print('Continuing with authenticated session...\n')
 		elif not args.no_auth:
 			# Auto-detect: navigate and let the LLM decide
 			auth_required = await detect_auth_required(browser_session, llm, args.url)
 			if auth_required:
 				await wait_for_manual_login(browser_session, llm, args.url, already_navigated=True)
-				authenticated = True
 				print('Continuing with authenticated session...\n')
 
 		# ── Plan generation ──

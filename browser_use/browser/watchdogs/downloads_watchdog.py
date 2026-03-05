@@ -1102,7 +1102,7 @@ class DownloadsWatchdog(BaseWatchdog):
 
 		# Use safe API - focus=False to avoid changing focus during PDF check
 		try:
-			session = await self.browser_session.get_or_create_cdp_session(target_id, focus=False)
+			await self.browser_session.get_or_create_cdp_session(target_id, focus=False)
 		except ValueError as e:
 			self.logger.warning(f'[DownloadsWatchdog] No session found for {target_id}: {e}')
 			return False

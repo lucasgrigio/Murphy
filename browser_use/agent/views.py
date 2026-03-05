@@ -971,7 +971,6 @@ class AgentError:
 	@staticmethod
 	def format_error(error: Exception, include_trace: bool = False) -> str:
 		"""Format error message based on error type and optionally include trace"""
-		message = ''
 		if isinstance(error, ValidationError):
 			return f'{AgentError.VALIDATION_ERROR}\nDetails: {str(error)}'
 		# Lazy import to avoid loading openai SDK (~800ms) at module level

@@ -295,7 +295,7 @@ class TestActionToActionCalling:
 			# This action calls select_cell_or_range, simulating the real Google Sheets pattern
 			# Get the action's param model to call it properly
 			action = registry.registry.actions['select_cell_or_range_fixed']
-			params = action.param_model(cell_or_range=range_name)
+			action.param_model(cell_or_range=range_name)
 			await select_cell_or_range_fixed(cell_or_range=range_name, browser_session=browser_session)
 			return ActionResult(extracted_content=f'Updated range {range_name} with {new_contents}')
 
@@ -402,7 +402,7 @@ class TestRegistryEdgeCases:
 
 		@registry.action('Requires LLM')
 		async def requires_llm(text: str, browser_session: BrowserSession, page_extraction_llm: BaseChatModel):
-			url = await browser_session.get_current_page_url()
+			await browser_session.get_current_page_url()
 			llm_response = await page_extraction_llm.ainvoke([UserMessage(content='test')])
 			return ActionResult(extracted_content=f'Text: {text}, LLM: {llm_response.completion}')
 

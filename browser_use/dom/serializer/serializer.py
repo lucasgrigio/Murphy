@@ -468,12 +468,11 @@ class DOMTreeSerializer:
 			attributes = node.attributes or {}
 			# Check for session-specific exclude attribute first, then fall back to legacy attribute
 			exclude_attr = None
-			attr_type = None
 			if self.session_id:
 				session_specific_attr = f'data-browser-use-exclude-{self.session_id}'
 				exclude_attr = attributes.get(session_specific_attr)
 				if exclude_attr:
-					attr_type = 'session-specific'
+					pass
 			# Fall back to legacy attribute if session-specific not found
 			if not exclude_attr:
 				exclude_attr = attributes.get('data-browser-use-exclude')

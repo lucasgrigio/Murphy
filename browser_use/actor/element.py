@@ -343,7 +343,7 @@ class Element:
 					)
 					await asyncio.sleep(0.1)
 					return
-				except Exception as js_e:
+				except Exception:
 					raise Exception(f'Failed to click element: {e}')
 
 		except Exception as e:
@@ -401,7 +401,7 @@ class Element:
 				raise RuntimeError('Session ID is required for fill operation')
 
 			# Step 1: Focus the element
-			focused_successfully = await self._focus_element_simple(
+			await self._focus_element_simple(
 				backend_node_id=backend_node_id,
 				object_id=object_id,
 				cdp_client=cdp_client,

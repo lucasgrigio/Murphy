@@ -378,10 +378,10 @@ class DomService:
 
 		# Wait for the page to be ready first
 		try:
-			ready_state = await cdp_session.cdp_client.send.Runtime.evaluate(
+			await cdp_session.cdp_client.send.Runtime.evaluate(
 				params={'expression': 'document.readyState'}, session_id=cdp_session.session_id
 			)
-		except Exception as e:
+		except Exception:
 			pass  # Page might not be ready yet
 		# DEBUG: Log before capturing snapshot
 		self.logger.debug(f'🔍 DEBUG: Capturing DOM snapshot for target {target_id}')
@@ -749,12 +749,10 @@ class DomService:
 
 			# DIAGNOSTIC: Log when interactive elements don't have snapshot data
 			if not snapshot_data and node['nodeName'].upper() in ['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'A']:
-				parent_has_shadow = False
 				parent_info = ''
 				if 'parentId' in node and node['parentId'] in enhanced_dom_tree_node_lookup:
 					parent = enhanced_dom_tree_node_lookup[node['parentId']]
 					if parent.shadow_root_type:
-						parent_has_shadow = True
 						parent_info = f'parent={parent.tag_name}(shadow={parent.shadow_root_type})'
 				attr_str = ''
 				if 'attributes' in node and node['attributes']:

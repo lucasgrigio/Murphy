@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from murphy.models import (
+	PERSONA_REGISTRY,
 	EvaluationReport,
 	ExecutiveSummary,
 	Feature,
@@ -11,7 +12,6 @@ from murphy.models import (
 	InteractiveElement,
 	JudgeVerdict,
 	PageInfo,
-	PERSONA_REGISTRY,
 	ReportSummary,
 	ScenarioExecutionVerdict,
 	TestPlan,
@@ -21,7 +21,6 @@ from murphy.models import (
 	TraitVector,
 	WebsiteAnalysis,
 )
-
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 

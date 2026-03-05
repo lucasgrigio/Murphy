@@ -115,7 +115,6 @@ async def test_focus_vs_all_elements():
 		await browser_session._cdp_navigate(website)
 		await asyncio.sleep(1)
 
-		last_clicked_index = None  # Track the index for text input
 		while True:
 			try:
 				# 	all_elements_state = await dom_service.get_serialized_dom_tree()
@@ -225,7 +224,7 @@ async def test_focus_vs_all_elements():
 				# 	f.write(json.dumps(all_elements_state.element_tree.__json__(), indent=2))
 				# print('Clickable elements written to ./tmp/clickable_elements.json')
 
-				website_list = get_website_list_for_prompt()
+				get_website_list_for_prompt()
 				answer = input(
 					"🎮 Enter: element index | 'index' click (clickable) | 'index,text' input | 'c,index' copy | Enter re-run | 'n' next | 'q' quit: "
 				)

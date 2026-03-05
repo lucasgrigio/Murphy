@@ -147,16 +147,11 @@ def tools():
 class TestARIAMenuDropdown:
 	"""Test ARIA menu support for get_dropdown_options and select_dropdown_option."""
 
-	@pytest.mark.skip(reason='TODO: fix')
+	@pytest.mark.skip(reason='ARIA menu elements are not yet indexed by get_index_by_id — needs DOM serializer support')
 	async def test_get_dropdown_options_with_aria_menu(self, tools, browser_session: BrowserSession, base_url):
 		"""Test that get_dropdown_options can retrieve options from ARIA menus."""
 		# Navigate to the ARIA menu test page
 		await tools.navigate(url=f'{base_url}/aria-menu', new_tab=False, browser_session=browser_session)
-
-		# Wait for the page to load
-		from browser_use.browser.events import NavigationCompleteEvent
-
-		await browser_session.event_bus.expect(NavigationCompleteEvent, timeout=10.0)
 
 		# Initialize the DOM state to populate the selector map
 		await browser_session.get_browser_state_summary()
@@ -183,16 +178,11 @@ class TestARIAMenuDropdown:
 		# Verify the instruction for using the text in select_dropdown is included
 		assert 'Use the exact text string in select_dropdown' in result.extracted_content
 
-	@pytest.mark.skip(reason='TODO: fix')
+	@pytest.mark.skip(reason='ARIA menu elements are not yet indexed by get_index_by_id — needs DOM serializer support')
 	async def test_select_dropdown_option_with_aria_menu(self, tools, browser_session: BrowserSession, base_url):
 		"""Test that select_dropdown_option can select an option from ARIA menus."""
 		# Navigate to the ARIA menu test page
 		await tools.navigate(url=f'{base_url}/aria-menu', new_tab=False, browser_session=browser_session)
-
-		# Wait for the page to load
-		from browser_use.browser.events import NavigationCompleteEvent
-
-		await browser_session.event_bus.expect(NavigationCompleteEvent, timeout=10.0)
 
 		# Initialize the DOM state to populate the selector map
 		await browser_session.get_browser_state_summary()
@@ -222,16 +212,11 @@ class TestARIAMenuDropdown:
 		result_text = result.get('result', {}).get('value', '')
 		assert 'Filter' in result_text, f"Expected 'Filter' in result text, got '{result_text}'"
 
-	@pytest.mark.skip(reason='TODO: fix')
+	@pytest.mark.skip(reason='ARIA menu elements are not yet indexed by get_index_by_id — needs DOM serializer support')
 	async def test_get_dropdown_options_with_nested_aria_menu(self, tools, browser_session: BrowserSession, base_url):
 		"""Test that get_dropdown_options can handle nested ARIA menus (like Sort submenu)."""
 		# Navigate to the ARIA menu test page
 		await tools.navigate(url=f'{base_url}/aria-menu', new_tab=False, browser_session=browser_session)
-
-		# Wait for the page to load
-		from browser_use.browser.events import NavigationCompleteEvent
-
-		await browser_session.event_bus.expect(NavigationCompleteEvent, timeout=10.0)
 
 		# Initialize the DOM state to populate the selector map
 		await browser_session.get_browser_state_summary()
