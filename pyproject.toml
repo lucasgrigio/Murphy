@@ -50,14 +50,6 @@ dependencies = [
     "fastapi>=0.115.8",
     "uvicorn>=0.34.0",
 ]
-# google-api-core: only used for Google LLM APIs
-# pyobjc: only used to get screen resolution on macOS
-# screeninfo: only used to get screen resolution on Linux/Windows
-# markdownify: used for page text content extraction for passing to LLM
-# openai: datalib,voice-helpers are actually NOT NEEDED but openai produces noisy errors on exit without them TODO: fix
-# rich: used for terminal formatting and styling in CLI
-# click: used for command-line argument parsing
-# textual: used for terminal UI
 
 [project.optional-dependencies]
 aws = ["boto3>=1.38.45"]
@@ -70,10 +62,6 @@ eval = [
     "datamodel-code-generator>=0.26.0",
 ]
 all = ["murphy[aws,oci]"]
-
-# will prefer to use local source code checked out in ../../browser-use (if present) instead of pypi browser-use package
-# [tool.uv.sources]
-# bubus = { path = "../bubus", editable = true }
 
 
 [project.urls]

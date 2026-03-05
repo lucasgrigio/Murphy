@@ -1,7 +1,7 @@
 # Vendored: browser-use
 
 - **Upstream**: https://github.com/browser-use/browser-use
-- **Vendored from**: commit `5c14f8b2` (branch `browser_use`), 2025
+- **Based on**: upstream circa early 2025 (pre-fork snapshot with local modifications)
 - **License**: MIT (see LICENSE in this directory)
 
 ## Local Modifications
