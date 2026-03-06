@@ -60,7 +60,10 @@ class OldConfig:
 
 	@property
 	def BROWSER_USE_CLOUD_SYNC(self) -> bool:
-		return os.getenv('BROWSER_USE_CLOUD_SYNC', 'false').lower()[:1] in 'ty1'
+		val = os.getenv('BROWSER_USE_CLOUD_SYNC')
+		if val is not None:
+			return val.lower()[:1] in 'ty1'
+		return self.ANONYMIZED_TELEMETRY
 
 	@property
 	def BROWSER_USE_CLOUD_API_URL(self) -> str:
