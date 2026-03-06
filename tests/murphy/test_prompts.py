@@ -57,7 +57,7 @@ def _make_scenario(**overrides) -> TestScenario:
 		success_criteria='Results appear',
 	)
 	defaults.update(overrides)
-	return TestScenario(**defaults)
+	return TestScenario.model_validate(defaults)
 
 
 # ─── build_analysis_prompt ────────────────────────────────────────────────────
@@ -196,6 +196,6 @@ def test_persona_distribution_text_includes_traits():
 
 def test_render_all_personas():
 	for persona in ['happy_path', 'confused_novice', 'adversarial', 'edge_case', 'explorer', 'impatient_user', 'angry_user']:
-		rendered = _render_persona_for_execution(persona)
+		rendered = _render_persona_for_execution(persona)  # type: ignore[arg-type]
 		assert persona in rendered
 		assert 'Trait profile' in rendered

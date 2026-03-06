@@ -16,7 +16,7 @@ def _make_scenario(**overrides) -> TestScenario:
 		success_criteria='Results appear',
 	)
 	defaults.update(overrides)
-	return TestScenario(**defaults)
+	return TestScenario.model_validate(defaults)
 
 
 def _make_verdict(**overrides) -> JudgeVerdict:
@@ -29,7 +29,7 @@ def _make_verdict(**overrides) -> JudgeVerdict:
 		failure_category=None,
 	)
 	defaults.update(overrides)
-	return JudgeVerdict(**defaults)
+	return JudgeVerdict.model_validate(defaults)
 
 
 def _make_result(**overrides) -> TestResult:
@@ -42,7 +42,7 @@ def _make_result(**overrides) -> TestResult:
 		duration=2.0,
 	)
 	defaults.update(overrides)
-	return TestResult(**defaults)
+	return TestResult.model_validate(defaults)
 
 
 # ─── classify_failure ─────────────────────────────────────────────────────────

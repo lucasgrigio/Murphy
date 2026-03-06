@@ -42,7 +42,7 @@ def _make_scenario(**overrides) -> TestScenario:
 		success_criteria='Results appear',
 	)
 	defaults.update(overrides)
-	return TestScenario(**defaults)
+	return TestScenario.model_validate(defaults)
 
 
 def _make_verdict(**overrides) -> JudgeVerdict:
@@ -55,7 +55,7 @@ def _make_verdict(**overrides) -> JudgeVerdict:
 		failure_category=None,
 	)
 	defaults.update(overrides)
-	return JudgeVerdict(**defaults)
+	return JudgeVerdict.model_validate(defaults)
 
 
 def _make_result(**overrides) -> TestResult:
@@ -68,7 +68,7 @@ def _make_result(**overrides) -> TestResult:
 		duration=5.0,
 	)
 	defaults.update(overrides)
-	return TestResult(**defaults)
+	return TestResult.model_validate(defaults)
 
 
 def _make_report(**overrides) -> EvaluationReport:
@@ -101,7 +101,7 @@ def _make_report(**overrides) -> EvaluationReport:
 		summary=ReportSummary(total=1, passed=1, failed=0, pass_rate=100.0, by_priority={'high': {'passed': 1, 'failed': 0}}),
 	)
 	defaults.update(overrides)
-	return EvaluationReport(**defaults)
+	return EvaluationReport.model_validate(defaults)
 
 
 # ─── _slugify ─────────────────────────────────────────────────────────────────

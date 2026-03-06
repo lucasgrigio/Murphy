@@ -16,7 +16,7 @@ def _make_scenario(**overrides) -> TestScenario:
 		success_criteria='User is redirected to dashboard and sees confirmation message',
 	)
 	defaults.update(overrides)
-	return TestScenario(**defaults)
+	return TestScenario.model_validate(defaults)
 
 
 def _make_diverse_plan(n: int = 6) -> TestPlan:

@@ -51,7 +51,7 @@ def copy_screenshots_to_output(report: EvaluationReport, output_dir: Path, *, cl
 				shutil.copy2(src, dst)
 				copied_paths.append(str(dst))
 		# Update paths to point to copied location
-		result.screenshot_paths = copied_paths
+		result.screenshot_paths = copied_paths  # type: ignore[assignment]
 
 
 def _slugify(name: str) -> str:
@@ -288,11 +288,9 @@ def _render_test_detail(r: TestResult, index: int, lines: list[str]) -> None:
 
 	if not passed:
 		failure_reason = r.reason or ''
-		judge_reasoning = ''
 		if r.judgement:
 			if not failure_reason:
 				failure_reason = r.judgement.failure_reason
-			judge_reasoning = r.judgement.reasoning
 
 		if failure_reason:
 			lines += [
@@ -370,9 +368,7 @@ def write_markdown_report(report: EvaluationReport, output_dir: Path) -> Path:
 			emoji = '\u26a0\ufe0f'
 			result_str = 'Failed'
 			category_str = 'Test Limitation'
-		lines.append(
-			f'| {emoji} {r.scenario.name} | {persona_label} | {result_str} | {category_str} | {r.duration:.0f}s |'
-		)
+		lines.append(f'| {emoji} {r.scenario.name} | {persona_label} | {result_str} | {category_str} | {r.duration:.0f}s |')
 
 	# Per-priority breakdown if there are multiple priorities
 	# priorities_present = list(s.by_priority.keys())

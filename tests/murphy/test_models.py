@@ -37,7 +37,7 @@ def _make_scenario(**overrides) -> TestScenario:
 		success_criteria='User is logged in',
 	)
 	defaults.update(overrides)
-	return TestScenario(**defaults)
+	return TestScenario.model_validate(defaults)
 
 
 def _make_verdict(**overrides) -> JudgeVerdict:
@@ -50,7 +50,7 @@ def _make_verdict(**overrides) -> JudgeVerdict:
 		failure_category=None,
 	)
 	defaults.update(overrides)
-	return JudgeVerdict(**defaults)
+	return JudgeVerdict.model_validate(defaults)
 
 
 def _make_result(**overrides) -> TestResult:
@@ -63,7 +63,7 @@ def _make_result(**overrides) -> TestResult:
 		duration=1.5,
 	)
 	defaults.update(overrides)
-	return TestResult(**defaults)
+	return TestResult.model_validate(defaults)
 
 
 def _make_analysis(**overrides) -> WebsiteAnalysis:
@@ -94,7 +94,7 @@ def _make_analysis(**overrides) -> WebsiteAnalysis:
 		identified_user_flows=['Browse → Search → View details'],
 	)
 	defaults.update(overrides)
-	return WebsiteAnalysis(**defaults)
+	return WebsiteAnalysis.model_validate(defaults)
 
 
 # ─── TraitVector ──────────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ def test_trait_vector_frozen():
 
 def test_trait_vector_extra_forbidden():
 	with pytest.raises(ValidationError):
-		TraitVector(speed='fast')
+		TraitVector(speed='fast')  # type: ignore[call-arg]
 
 
 # ─── PERSONA_REGISTRY ────────────────────────────────────────────────────────
@@ -307,7 +307,7 @@ def test_interactive_element_valid():
 
 def test_interactive_element_rejects_invalid_type():
 	with pytest.raises(ValidationError):
-		InteractiveElement(element_type='widget', label='Submit')
+		InteractiveElement(element_type='widget', label='Submit')  # type: ignore[arg-type]
 
 
 # ─── FeedbackQualityScore ────────────────────────────────────────────────────
@@ -330,7 +330,7 @@ def test_feedback_quality_score_valid_types():
 			response_timely=True,
 			response_clear=True,
 			response_actionable=True,
-			feedback_type=ft,
+			feedback_type=ft,  # type: ignore[arg-type]
 		)
 		assert fq.feedback_type == ft
 
@@ -342,7 +342,7 @@ def test_feedback_quality_score_rejects_invalid_type():
 			response_timely=True,
 			response_clear=True,
 			response_actionable=True,
-			feedback_type='popup',
+			feedback_type='popup',  # type: ignore[arg-type]
 		)
 
 

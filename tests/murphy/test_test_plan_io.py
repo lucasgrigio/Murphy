@@ -21,7 +21,7 @@ def _make_scenario(**overrides) -> TestScenario:
 		success_criteria='User is logged in and sees dashboard',
 	)
 	defaults.update(overrides)
-	return TestScenario(**defaults)
+	return TestScenario.model_validate(defaults)
 
 
 def _make_plan(n: int = 3) -> TestPlan:

@@ -64,7 +64,7 @@ def _make_analysis(**overrides) -> WebsiteAnalysis:
 		],
 	)
 	defaults.update(overrides)
-	return WebsiteAnalysis(**defaults)
+	return WebsiteAnalysis.model_validate(defaults)
 
 
 def test_write_and_read_roundtrip():
