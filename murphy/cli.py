@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -108,11 +109,21 @@ async def _async_main(args: argparse.Namespace) -> None:
 	try:
 		# ── Auth detection / login wait ──
 		BROWSER_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+
+		# Headless by default; show browser when --auth is used (user needs to interact).
+		# Explicit BROWSER_USE_HEADLESS env var always takes precedence.
+		if os.getenv('BROWSER_USE_HEADLESS') is not None:
+			headless = os.getenv('BROWSER_USE_HEADLESS', 'true').lower()[:1] in 'ty1'
+		elif CONFIG.IN_DOCKER:
+			headless = True
+		else:
+			headless = not args.auth
+
 		browser_session = BrowserSession(
 			browser_profile=BrowserProfile(
 				user_data_dir=BROWSER_PROFILE_DIR,
 				keep_alive=True,
-				headless=CONFIG.IN_DOCKER,
+				headless=headless,
 				dom_highlight_elements=not args.no_highlights,
 			)
 		)
