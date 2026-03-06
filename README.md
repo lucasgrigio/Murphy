@@ -88,6 +88,9 @@ uv run murphy --url https://example.com --features murphy/output/example_com_fea
 uv run murphy --url https://example.com --plan murphy/output/test_plan.yaml
 ```
 
+https://github.com/user-attachments/assets/7fbc441d-e02f-4321-aba7-3aec0cb17163
+
+
 ## How It Works
 
 Murphy supports two planning strategies, both followed by the same execution phase:
