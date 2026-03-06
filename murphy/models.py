@@ -29,7 +29,7 @@ TestPersona = Literal[
 	'edge_case',  # empty forms, special chars, long inputs, double-clicks
 	'explorer',  # goes off the beaten path, tries unexpected combinations
 	'impatient_user',  # clicks rapidly, doesn't wait for loads, skips steps
-	'angry_user',  # rage-clicks, types frustration into fields, force-navigates
+	'angry_user',  # rage-clicks, force-navigates, rapid form submissions, abandons flows mid-way
 ]
 
 

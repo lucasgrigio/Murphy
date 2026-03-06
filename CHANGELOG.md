@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - AI browser agent powered by vendored browser-use engine
 - Auth detection and manual login flow with persistent browser profiles
 - Goal-directed exploration-first test generation (`--goal`)
-- Multi-persona test scenarios (happy path, confused novice, adversarial, edge case, explorer, impatient user, angry user)
+- Multi-persona test scenarios (happy path, confused novice, adversarial, edge case, explorer, impatient user, frustrated user)
 - Murphy judge for authoritative pass/fail verdicts with trait evaluations and feedback quality scoring
 - Quality gate with automatic retry for generated test plans
 - Parallel test execution with session pooling and auth cookie transfer (`--parallel`)

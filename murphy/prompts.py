@@ -31,7 +31,7 @@ _PERSONA_DISTRIBUTION: dict[TestPersona, tuple[int, str]] = {
 	),
 	'angry_user': (
 		10,
-		'Rage-clicks buttons, types profanity into fields, force-navigates by typing URLs, hammers the back button.',
+		'Rage-clicks buttons repeatedly, force-navigates by typing URLs, submits forms rapidly without waiting, abandons multi-step flows mid-way.',
 	),
 }
 
@@ -177,7 +177,7 @@ PERSONA-SPECIFIC SUCCESS CRITERIA GUIDANCE:
 - edge_case (Security): "The website handles the edge case without crashing — shows a validation message, truncates gracefully, or ignores invalid input"
 - explorer (UX): "The website provides ORIENTATION AND FEEDBACK at every step — clear page titles, breadcrumbs, 'no results found' messages, or redirect explanations. Dead ends with no feedback, blank pages, or silent failures are FAILURES"
 - impatient_user (UX): "The website provides VISIBLE STATE FEEDBACK during rapid interactions — loading indicators, 'please wait' messages, queued-action confirmation, or duplicate-prevention messages. Silent deduplication with no user-facing signal is a FAILURE"
-- angry_user (Security): "The website absorbs the hostile interaction gracefully — no crash, no inappropriate response to profanity in inputs, no infinite loops from rapid clicks"
+- angry_user (Security): "The website absorbs the hostile interaction gracefully — no crash, no broken state from force-navigation, no infinite loops from rapid clicks"
 
 Each test should have:
 - A clear name reflecting the persona behavior (e.g. "Novice submits empty search form" not "Test search functionality")
@@ -214,8 +214,8 @@ SUCCESS CRITERIA RULES — must use BEHAVIORAL OUTCOME format:
 CRITICAL — Security-oriented persona criteria:
 - For adversarial tests: if the site accepts the input without crashing, erroring, or exposing sensitive data, that IS a pass. Silent sanitization is valid and correct behavior.
 - For edge_case tests: if the site handles unusual input without breaking, that IS a pass — even if no explicit validation message appears.
-- For angry_user tests: if the site absorbs hostile input without crashing or exposing errors, that IS a pass.
-- Do NOT assume the site has features it hasn't demonstrated (e.g., profanity filters, injection-specific error messages, input length validators).
+- For angry_user tests: if the site absorbs hostile interactions without crashing or exposing errors, that IS a pass.
+- Do NOT assume the site has features it hasn't demonstrated (e.g., injection-specific error messages, input length validators).
 
 CRITICAL — UX-oriented persona criteria:
 - For happy_path tests: the user must receive visible confirmation that their action succeeded.
@@ -292,7 +292,7 @@ def build_plan_synthesis_prompt(
 		f'- edge_case (~15%): Empty inputs, special chars, long strings. Graceful degradation (even silent) is a PASS.\n'
 		f'- explorer (~10%): Unusual navigation, unexpected feature combos. Success requires orientation feedback — page titles, breadcrumbs, "no results" messages. Dead ends with no feedback are FAILS.\n'
 		f'- impatient_user (~15%): Rapid clicks, skipping steps. Success requires visible state feedback — loading indicators, "please wait" messages. Silent deduplication is a FAIL.\n'
-		f'- angry_user (~10%): Rage-clicks, profanity in inputs. Absorbing hostility without crash is a PASS.\n'
+		f'- angry_user (~10%): Rage-clicks, force-navigation, rapid form submissions, abandoning flows. Absorbing hostility without crash is a PASS.\n'
 	)
 
 
@@ -315,7 +315,7 @@ _PERSONA_DESCRIPTIONS: dict[TestPersona, str] = {
 	'edge_case': 'A methodical tester exercising boundary conditions: empty fields, max-length strings, special characters (emoji, RTL text, null bytes), double-clicks.',
 	'explorer': 'A curious user who takes unexpected paths: visits pages out of order, uses features in unintended combinations, clicks decorative elements.',
 	'impatient_user': 'A rushed user who clicks rapidly without waiting, skips required steps, submits forms immediately, navigates away mid-action.',
-	'angry_user': 'A frustrated user who rage-clicks buttons, types profanity into fields, hammers the back button, and force-navigates by typing URLs.',
+	'angry_user': 'A frustrated user who rage-clicks buttons repeatedly, force-navigates by typing URLs, submits forms rapidly without waiting, and abandons multi-step flows mid-way.',
 }
 
 

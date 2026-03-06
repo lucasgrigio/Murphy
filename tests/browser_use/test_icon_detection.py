@@ -73,7 +73,7 @@ async def browser_session():
 		browser_profile=BrowserProfile(
 			headless=True,
 			user_data_dir=None,
-			keep_alive=True,
+			keep_alive=False,
 		)
 	)
 	await session.start()
