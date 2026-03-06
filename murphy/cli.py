@@ -221,7 +221,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 			)
 
 		# ── Phase 2: Execute ──
-		def _on_test_complete(results: list['TestResult']) -> None:
+		def _on_test_complete(results: list[TestResult]) -> None:
 			if analysis:
 				write_reports_and_print(args.url, analysis, results, output_dir)
 
@@ -249,7 +249,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 
 		_browser_session = browser_session  # capture for closure
 
-		async def _execute_fn(plan: 'TestPlan', state: 'ServerState') -> list['TestResult']:
+		async def _execute_fn(plan: TestPlan, state: ServerState) -> list[TestResult]:
 			return await execute_tests_with_session(
 				args.url,
 				plan,
@@ -294,7 +294,7 @@ async def _async_main(args: argparse.Namespace) -> None:
 			await browser_session.kill()
 
 
-def _log_results_summary(results: list['TestResult']) -> None:
+def _log_results_summary(results: list[TestResult]) -> None:
 	from murphy.summary import build_summary
 
 	summary = build_summary(results)

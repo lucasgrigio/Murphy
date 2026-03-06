@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-async def detect_auth_required(browser_session: 'BrowserSession', llm: 'ChatOpenAI', url: str) -> bool:
+async def detect_auth_required(browser_session: BrowserSession, llm: ChatOpenAI, url: str) -> bool:
 	"""Navigate to URL and use a passive LLM call to detect if login is required."""
 	logger.info('\n%s', '=' * 60)
 	logger.info('Checking if %s requires login...', url)
@@ -34,7 +34,7 @@ async def detect_auth_required(browser_session: 'BrowserSession', llm: 'ChatOpen
 	return auth_required
 
 
-async def _get_page_text(browser_session: 'BrowserSession') -> tuple[str, str, str]:
+async def _get_page_text(browser_session: BrowserSession) -> tuple[str, str, str]:
 	"""Read page title, URL, and truncated body text via CDP — completely passive, no side effects."""
 	try:
 		current_url = await browser_session.get_current_page_url()
@@ -59,7 +59,7 @@ async def _get_page_text(browser_session: 'BrowserSession') -> tuple[str, str, s
 	return current_url, title, body
 
 
-async def _llm_classify_page(llm: 'ChatOpenAI', url: str, title: str, body: str, *, mode: str = 'auth_detect') -> bool:
+async def _llm_classify_page(llm: ChatOpenAI, url: str, title: str, body: str, *, mode: str = 'auth_detect') -> bool:
 	"""Use a single LLM call (no agent) to classify page content.
 
 	Returns True if the page looks like authenticated/usable content.
@@ -96,8 +96,8 @@ async def _llm_classify_page(llm: 'ChatOpenAI', url: str, title: str, body: str,
 
 
 async def wait_for_manual_login(
-	browser_session: 'BrowserSession',
-	llm: 'ChatOpenAI',
+	browser_session: BrowserSession,
+	llm: ChatOpenAI,
 	url: str,
 	*,
 	already_navigated: bool = False,

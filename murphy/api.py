@@ -292,7 +292,7 @@ async def _run_job_async(
 	"""Run core function as a background job, update job store, deliver webhook."""
 	try:
 		await asyncio.wait_for(_job_semaphore.acquire(), timeout=_SEMAPHORE_ACQUIRE_TIMEOUT)
-	except asyncio.TimeoutError:
+	except TimeoutError:
 		job.status = 'failed'
 		job.error = f'All {MURPHY_MAX_CONCURRENT_JOBS} job slots busy — try again later'
 		await _deliver_webhook(webhook_url, job.model_dump())
@@ -302,7 +302,7 @@ async def _run_job_async(
 		effective = _effective_timeout(timeout)
 		job.result = await asyncio.wait_for(core_fn(req), timeout=effective)
 		job.status = 'completed'
-	except asyncio.TimeoutError:
+	except TimeoutError:
 		logger.error(f'Job {job.id} timed out after {_effective_timeout(timeout)}s')
 		job.status = 'failed'
 		job.error = f'Job timed out after {_effective_timeout(timeout)}s'
@@ -337,7 +337,7 @@ async def _run_job_no_webhook(
 	"""Run core function as a background job, update job store. No webhook delivery."""
 	try:
 		await asyncio.wait_for(_job_semaphore.acquire(), timeout=_SEMAPHORE_ACQUIRE_TIMEOUT)
-	except asyncio.TimeoutError:
+	except TimeoutError:
 		job.status = 'failed'
 		job.error = f'All {MURPHY_MAX_CONCURRENT_JOBS} job slots busy — try again later'
 		return
@@ -346,7 +346,7 @@ async def _run_job_no_webhook(
 		effective = _effective_timeout(timeout)
 		job.result = await asyncio.wait_for(core_fn(req), timeout=effective)
 		job.status = 'completed'
-	except asyncio.TimeoutError:
+	except TimeoutError:
 		logger.error(f'Job {job.id} timed out after {_effective_timeout(timeout)}s')
 		job.status = 'failed'
 		job.error = f'Job timed out after {_effective_timeout(timeout)}s'
@@ -366,7 +366,7 @@ async def _run_sync(core_fn: Any, req: Any, timeout: int) -> JSONResponse:
 	"""Run core function synchronously (blocking), return 200 with result or 500 on error."""
 	try:
 		await asyncio.wait_for(_job_semaphore.acquire(), timeout=_SEMAPHORE_ACQUIRE_TIMEOUT)
-	except asyncio.TimeoutError:
+	except TimeoutError:
 		return JSONResponse(
 			content={'status': 'failed', 'error': f'All {MURPHY_MAX_CONCURRENT_JOBS} job slots busy — try again later'},
 			status_code=503,
@@ -376,7 +376,7 @@ async def _run_sync(core_fn: Any, req: Any, timeout: int) -> JSONResponse:
 		effective = _effective_timeout(timeout)
 		result = await asyncio.wait_for(core_fn(req), timeout=effective)
 		return JSONResponse(content={'status': 'completed', 'result': result}, status_code=200)
-	except asyncio.TimeoutError:
+	except TimeoutError:
 		logger.error(f'Sync request timed out after {_effective_timeout(timeout)}s')
 		return JSONResponse(
 			content={'status': 'failed', 'error': f'Job timed out after {_effective_timeout(timeout)}s'},

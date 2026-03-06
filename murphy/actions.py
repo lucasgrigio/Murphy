@@ -18,7 +18,7 @@ def _domain_from_url(url: str) -> str:
 	return parsed.hostname or url
 
 
-def register_domain_access_action(tools: 'Tools', session: 'BrowserSession') -> None:  # type: ignore[type-arg]
+def register_domain_access_action(tools: Tools, session: BrowserSession) -> None:  # type: ignore[type-arg]
 	"""Register an action that lets the agent request access to blocked domains."""
 
 	@tools.action(
@@ -42,7 +42,7 @@ def register_domain_access_action(tools: 'Tools', session: 'BrowserSession') -> 
 		)
 
 
-def register_refresh_dom_action(tools: 'Tools', session: 'BrowserSession') -> None:  # type: ignore[type-arg]
+def register_refresh_dom_action(tools: Tools, session: BrowserSession) -> None:  # type: ignore[type-arg]
 	"""Register an action that forces a fresh DOM state read without page reload."""
 
 	@tools.action(
