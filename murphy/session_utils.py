@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 	from browser_use.browser.session import BrowserSession
 
 
-async def ui_readiness_score(session: 'BrowserSession') -> tuple[int, int]:
+async def ui_readiness_score(session: BrowserSession) -> tuple[int, int]:
 	"""Return (interactive_count, text_length) from the current page."""
 	cdp_session = await session.get_or_create_cdp_session()
 	result = await cdp_session.cdp_client.send.Runtime.evaluate(
@@ -38,7 +38,7 @@ async def ui_readiness_score(session: 'BrowserSession') -> tuple[int, int]:
 	return interactive_count, text_length
 
 
-async def wait_until_ui_ready(session: 'BrowserSession', url: str) -> bool:
+async def wait_until_ui_ready(session: BrowserSession, url: str) -> bool:
 	"""Adaptive polling with early exit — avoids long fixed sleeps."""
 	poll_delays = [0.3, 0.6, 0.9, 1.2, 1.5]
 	for delay in poll_delays:
@@ -61,7 +61,7 @@ async def wait_until_ui_ready(session: 'BrowserSession', url: str) -> bool:
 	return False
 
 
-async def enforce_single_tab(session: 'BrowserSession', url: str) -> None:
+async def enforce_single_tab(session: BrowserSession, url: str) -> None:
 	"""Close extra tabs to prevent agent drift across duplicate tabs."""
 	pages = await session.get_pages()
 	if not pages:
@@ -80,7 +80,7 @@ async def enforce_single_tab(session: 'BrowserSession', url: str) -> None:
 
 
 async def prepare_session_for_task(
-	session: 'BrowserSession',
+	session: BrowserSession,
 	url: str,
 	*,
 	force_navigate: bool = False,

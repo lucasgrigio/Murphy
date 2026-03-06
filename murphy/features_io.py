@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 	from murphy.models import WebsiteAnalysis
 
 
-def write_features_markdown(analysis: 'WebsiteAnalysis', output_dir: Path) -> Path:
+def write_features_markdown(analysis: WebsiteAnalysis, output_dir: Path) -> Path:
 	"""Write a clean markdown file listing all discovered features."""
 	domain = urlparse(analysis.key_pages[0].url).netloc if analysis.key_pages else analysis.site_name
 	slug = domain.replace('.', '_').replace(':', '_')
@@ -56,7 +56,7 @@ def write_features_markdown(analysis: 'WebsiteAnalysis', output_dir: Path) -> Pa
 	return path
 
 
-def read_features_markdown(path: Path) -> 'WebsiteAnalysis':
+def read_features_markdown(path: Path) -> WebsiteAnalysis:
 	"""Parse a features markdown file back into a WebsiteAnalysis."""
 	from murphy.models import Feature, PageInfo, WebsiteAnalysis
 
