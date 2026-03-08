@@ -55,7 +55,7 @@ def test_parse_json_string_int_passthrough():
 
 
 def test_analyze_request_minimal():
-	r = AnalyzeRequest(url='https://example.com')
+	r = AnalyzeRequest(url='https://example.com')  # type: ignore[call-arg]
 	assert r.url == 'https://example.com'
 	assert r.category is None
 	assert r.goal is None
@@ -64,13 +64,13 @@ def test_analyze_request_minimal():
 
 
 def test_analyze_request_full():
-	r = AnalyzeRequest(
+	r = AnalyzeRequest(  # type: ignore[call-arg]
 		url='https://example.com',
 		category='saas',
 		goal='test checkout',
 		model='gpt-5',
 		webhook_url='https://hooks.example.com',
-		**{'async': True},
+		async_mode=True,  # type: ignore[call-arg]
 	)
 	assert r.category == 'saas'
 	assert r.goal == 'test checkout'
@@ -80,14 +80,14 @@ def test_analyze_request_full():
 
 def test_analyze_request_missing_url():
 	with pytest.raises(ValidationError):
-		AnalyzeRequest()
+		AnalyzeRequest()  # type: ignore[call-arg]
 
 
 # ─── EvaluateRequest ─────────────────────────────────────────────────────────
 
 
 def test_evaluate_request_defaults():
-	r = EvaluateRequest(url='https://example.com')
+	r = EvaluateRequest(url='https://example.com')  # type: ignore[call-arg]
 	assert r.max_tests == 8
 	assert r.async_mode is False
 
@@ -96,7 +96,7 @@ def test_evaluate_request_defaults():
 
 
 def test_execute_request_defaults():
-	r = ExecuteRequest(url='https://example.com')
+	r = ExecuteRequest(url='https://example.com')  # type: ignore[call-arg]
 	assert r.test_plan is None
 	assert r.evaluate_job_id is None
 	assert r.max_steps == 15
@@ -119,7 +119,7 @@ def test_execute_request_with_json_string_test_plan():
 			}
 		]
 	}
-	r = ExecuteRequest(url='https://example.com', test_plan=json.dumps(plan_dict))
+	r = ExecuteRequest(url='https://example.com', test_plan=json.dumps(plan_dict))  # type: ignore[arg-type]
 	assert r.test_plan is not None
 	assert len(r.test_plan.scenarios) == 1
 	assert r.test_plan.scenarios[0].name == 'Test search'
@@ -158,12 +158,12 @@ def _make_analysis_dict() -> dict:
 
 
 def test_generate_plan_request_with_dict_analysis():
-	r = GeneratePlanRequest(url='https://example.com', analysis=_make_analysis_dict())
+	r = GeneratePlanRequest(url='https://example.com', analysis=_make_analysis_dict())  # type: ignore[arg-type]
 	assert r.analysis.site_name == 'Example'
 
 
 def test_generate_plan_request_with_json_string_analysis():
-	r = GeneratePlanRequest(url='https://example.com', analysis=json.dumps(_make_analysis_dict()))
+	r = GeneratePlanRequest(url='https://example.com', analysis=json.dumps(_make_analysis_dict()))  # type: ignore[arg-type]
 	assert r.analysis.site_name == 'Example'
 
 

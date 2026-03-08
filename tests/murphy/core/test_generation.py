@@ -9,7 +9,7 @@ from murphy.core.generation import (
 	generate_tests,
 	summarize_exploration_from_actions,
 )
-from murphy.models import Feature, PageInfo, TestPlan, TestScenario, WebsiteAnalysis
+from murphy.models import Feature, PageInfo, TestPersona, TestPlan, TestScenario, WebsiteAnalysis
 
 
 def _make_analysis() -> WebsiteAnalysis:
@@ -37,7 +37,15 @@ def _make_analysis() -> WebsiteAnalysis:
 
 def _make_good_plan() -> TestPlan:
 	"""A plan that passes quality checks."""
-	personas = ['happy_path', 'confused_novice', 'adversarial', 'edge_case', 'explorer', 'impatient_user', 'angry_user']
+	personas: list[TestPersona] = [
+		'happy_path',
+		'confused_novice',
+		'adversarial',
+		'edge_case',
+		'explorer',
+		'impatient_user',
+		'angry_user',
+	]
 	scenarios = []
 	for i, persona in enumerate(personas[:6]):
 		priority = 'critical' if persona == 'happy_path' else 'high'

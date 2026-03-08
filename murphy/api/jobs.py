@@ -57,7 +57,7 @@ def get_job(job_id: str) -> Job | None:
 	return _jobs.get(job_id)
 
 
-def _effective_timeout(timeout: int) -> int:
+def _effective_timeout(timeout: int | float) -> int | float:
 	"""Return the override timeout if set, otherwise the per-endpoint value."""
 	if MURPHY_JOB_TIMEOUT_OVERRIDE is not None:
 		return int(MURPHY_JOB_TIMEOUT_OVERRIDE)
@@ -105,7 +105,7 @@ async def _acquire_semaphore() -> bool:
 		return False
 
 
-async def _execute_with_semaphore(job: Job, core_fn: Any, req: Any, timeout: int) -> None:
+async def _execute_with_semaphore(job: Job, core_fn: Any, req: Any, timeout: int | float) -> None:
 	"""Run core_fn under semaphore, update job status on completion/failure."""
 	try:
 		effective = _effective_timeout(timeout)

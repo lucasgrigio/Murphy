@@ -121,6 +121,8 @@ exclude = [
     "tests/scripts/*",
     "tests/old/*",
     "browser_use/dom/playground/*",
+    "browser_use/mcp/*",
+    "browser_use/skill_cli/*",
     "browser_use/llm/oci_raw/*",
     "browser_use/llm/tests/test_chat_models.py",
     "browser_use/llm/tests/test_single_step.py",

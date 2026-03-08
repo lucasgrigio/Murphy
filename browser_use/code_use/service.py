@@ -941,7 +941,7 @@ __code_exec_coro__ = __code_exec__()
 
 					# Track newly created/modified variables (info shown in "Available" section)
 					vars_after = set(self.namespace.keys())
-					vars_after - vars_before
+					_new_vars = vars_after - vars_before
 
 				# Get output
 				output_value = sys.stdout.getvalue()

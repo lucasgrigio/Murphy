@@ -2748,7 +2748,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 				)
 
 				time_end = time.time()
-				time_end - time_start
+				_elapsed = time_end - time_start
 
 				if result.error:
 					await self._demo_mode_log(

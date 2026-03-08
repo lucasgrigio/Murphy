@@ -121,7 +121,7 @@ async def test_execute_with_semaphore_timeout(monkeypatch):
 	job = Job(id='slow')
 	await _execute_with_semaphore(job, slow_fn, {}, timeout=0.1)
 	assert job.status == 'failed'
-	assert 'timed out' in job.error
+	assert job.error is not None and 'timed out' in job.error
 
 
 @pytest.mark.asyncio
@@ -134,7 +134,7 @@ async def test_execute_with_semaphore_exception(monkeypatch):
 	job = Job(id='fail')
 	await _execute_with_semaphore(job, failing_fn, {}, timeout=30)
 	assert job.status == 'failed'
-	assert 'ValueError' in job.error
+	assert job.error is not None and 'ValueError' in job.error
 	assert 'something went wrong' in job.error
 
 

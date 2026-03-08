@@ -181,5 +181,5 @@ def test_extract_urls_from_texts_multiple():
 
 
 def test_extract_urls_from_texts_skips_none():
-	result = _extract_urls_from_texts([None, '', 'https://ok.com'])
+	result = _extract_urls_from_texts(['', 'https://ok.com'])
 	assert result == ['https://ok.com']

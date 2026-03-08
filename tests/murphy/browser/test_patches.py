@@ -1,13 +1,20 @@
 """Tests for browser_use schema resolution monkey-patch."""
 
+from typing import Any, cast
+
 from murphy.browser.patches import _resolve_refs
 
 # ─── _resolve_refs ────────────────────────────────────────────────────────────
 
 
+def _resolve(schema: dict[str, Any]) -> dict[str, Any]:
+	"""Wrapper that narrows the return type for tests (input is always a dict)."""
+	return cast(dict[str, Any], _resolve_refs(schema))
+
+
 def test_resolve_refs_no_refs():
 	schema = {'type': 'object', 'properties': {'name': {'type': 'string'}}}
-	result = _resolve_refs(schema)
+	result = _resolve(schema)
 	assert result == {'type': 'object', 'properties': {'name': {'type': 'string'}}}
 
 
@@ -21,7 +28,7 @@ def test_resolve_refs_simple_ref():
 			'address': {'$ref': '#/$defs/Address'},
 		},
 	}
-	result = _resolve_refs(schema)
+	result = _resolve(schema)
 	assert '$defs' not in result
 	assert '$ref' not in result['properties']['address']
 	assert result['properties']['address']['type'] == 'object'
@@ -39,7 +46,7 @@ def test_resolve_refs_nested_ref():
 			'outer': {'$ref': '#/$defs/Outer'},
 		},
 	}
-	result = _resolve_refs(schema)
+	result = _resolve(schema)
 	assert result['properties']['outer']['properties']['value']['type'] == 'string'
 
 
@@ -51,7 +58,7 @@ def test_resolve_refs_array_items():
 		'type': 'array',
 		'items': {'$ref': '#/$defs/Item'},
 	}
-	result = _resolve_refs(schema)
+	result = _resolve(schema)
 	assert result['items']['type'] == 'string'
 
 
@@ -63,7 +70,7 @@ def test_resolve_refs_list_input():
 			'values': {'type': 'array', 'items': [{'$ref': '#/$defs/Val'}, {'type': 'string'}]},
 		},
 	}
-	result = _resolve_refs(schema)
+	result = _resolve(schema)
 	items = result['properties']['values']['items']
 	assert isinstance(items, list)
 	assert items[0]['type'] == 'number'
@@ -80,7 +87,7 @@ def test_resolve_refs_definitions_key():
 			'thing': {'$ref': '#/definitions/Thing'},
 		},
 	}
-	result = _resolve_refs(schema)
+	result = _resolve(schema)
 	assert 'definitions' not in result
 	assert result['properties']['thing']['type'] == 'integer'
 
@@ -95,6 +102,6 @@ def test_resolve_refs_preserves_extra_fields():
 			'item': {'$ref': '#/$defs/Base', 'description': 'A base item'},
 		},
 	}
-	result = _resolve_refs(schema)
+	result = _resolve(schema)
 	assert result['properties']['item']['description'] == 'A base item'
 	assert result['properties']['item']['type'] == 'object'

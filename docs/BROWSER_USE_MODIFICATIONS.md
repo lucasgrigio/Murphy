@@ -24,6 +24,8 @@
 
 9. **Custom Murphy tests** (`tests/browser_use/test_ai_step.py`, `tests/browser_use/test_rerun_ai_summary.py`) — Tests for `_execute_ai_step()` and `_generate_rerun_summary()` agent methods added for Murphy. These use mocked LLMs and mocked browser state (no real browser launch).
 
+10. **Linting fixes** (`browser_use/agent/prompts.py`, `browser_use/agent/service.py`, `browser_use/code_use/service.py`) — Assigned unused expression results to underscore-prefixed variables to satisfy pyright `reportUnusedExpression`. Also excluded `browser_use/mcp/` and `browser_use/skill_cli/` from pyright checking (optional dependencies not installed).
+
 ## Syncing with Upstream
 
 ```bash
