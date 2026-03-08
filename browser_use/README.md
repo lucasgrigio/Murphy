@@ -1,5 +1,7 @@
 # Codebase Structure
 
+> Vendored from [browser-use/browser-use](https://github.com/browser-use/browser-use) with local patches. See [docs/BROWSER_USE_MODIFICATIONS.md](/docs/BROWSER_USE_MODIFICATIONS.md) for the list of modifications.
+
 > The code structure inspired by https://github.com/Netflix/dispatch.
 
 Very good structure on how to make a scalable codebase is also in [this repo](https://github.com/zhanymkanov/fastapi-best-practices).

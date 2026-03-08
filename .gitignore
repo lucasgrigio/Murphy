@@ -1,6 +1,7 @@
 # Cache files
 .DS_Store
 __pycache__/
+.coverage
 *.py[cod]
 *$py.class
 .mypy_cache/
@@ -31,8 +32,8 @@ dist/
 /*.json
 /*.jsonl
 
-# Track fixture data
-!murphy/fixture_data/
+# Runtime-generated fixture data
+murphy/fixture_data/
 *.exe
 
 # Secrets and sensitive files

@@ -10,6 +10,9 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
+# Murphy's own imports are lightweight (browser-use-sdk, uuid7, click, rich,
+# pydantic, fastapi, etc.). The remaining packages below are required by the
+# vendored browser_use/ engine and its LLM provider integrations.
 dependencies = [
     "aiohttp>=3.13.3",
     "anyio>=4.9.0",
@@ -52,8 +55,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-aws = ["boto3>=1.38.45"]
-oci = ["oci>=2.126.4"]
 video = ["imageio[ffmpeg]>=2.37.0", "numpy>=2.3.2"]
 eval = [
     "lmnr[all]==0.7.17",
@@ -61,15 +62,14 @@ eval = [
     "psutil>=7.0.0",
     "datamodel-code-generator>=0.26.0",
 ]
-all = ["murphy[aws,oci]"]
 
 
 [project.urls]
 Repository = "https://github.com/ProsusAI/Murphy"
 
 [project.scripts]
-murphy = "murphy.cli:main"  # AI-driven website evaluation (primary)
-murphy-api = "murphy.api:main"  # Murphy REST API server
+murphy = "murphy.api.cli:main"  # AI-driven website evaluation (primary)
+murphy-api = "murphy.api.rest:main"  # Murphy REST API server
 
 [build-system]
 requires = ["hatchling"]
@@ -201,4 +201,5 @@ dev-dependencies = [
     "lmnr[all]==0.7.17",
     # "pytest-playwright-asyncio>=0.7.0",  # not actually needed I think
     "pytest-timeout>=2.4.0",
+    "pytest-cov>=7.0.0",
 ]

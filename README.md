@@ -7,7 +7,7 @@ Built on top of [browser-use](https://github.com/browser-use/browser-use) (AI br
 ## Prerequisites
 
 - Python >= 3.11
-- An LLM API key — default model is `gpt-5-mini`, so you'll need `OPENAI_API_KEY` (or pass `--model` for another provider)
+- An OpenAI API key (`OPENAI_API_KEY`) — default model is `gpt-5-mini`
 
 ## Which setup should I use?
 
@@ -61,14 +61,14 @@ docker build -f docker/Dockerfile . -t murphy --no-cache
 
 **3. Run via the helper script:**
 ```bash
-./murphy/run.sh --url https://example.com [options]
+./run.sh --url https://example.com [options]
 ```
 
 The script mounts `murphy/` and `.env` into the container and runs `python -m murphy` with your arguments.
 
 ## Usage
 
-All examples below use `uv run murphy`. If running via Docker, replace with `./murphy/run.sh`.
+All examples below use `uv run murphy`. If running via Docker, replace with `./run.sh`.
 
 ```bash
 # Full run: auto-detect auth -> analyze site -> generate tests -> execute
@@ -116,6 +116,54 @@ Default output directory: `./murphy/output/`
 | `evaluation_report.json` | Full structured results (machine-readable) |
 | `evaluation_report.md` | Human-readable summary with pass/fail per test |
 
+## Example Output
+
+After a run, `evaluation_report.md` looks like this (abbreviated):
+
+```markdown
+# Evaluation Report: Example Store
+
+> **An e-commerce site with product listings, search, and checkout.**
+
+| | |
+|---|---|
+| URL | https://example.com |
+| Category | ecommerce |
+| Date | 2026-03-07 |
+
+## Results at a Glance
+
+**6/8 tests passed (75.0%)**
+- Website Issues: 1
+- Test Limitations: 1
+
+| Test | Persona | Result | Category | Duration |
+|------|---------|--------|----------|----------|
+| Search for existing product | Happy Path | Passed | | 42s |
+| Submit empty checkout form | Edge Case | Passed | | 38s |
+| XSS payload in search bar | Adversarial | Passed | | 35s |
+| Add item without logging in | Confused Novice | Failed | Website Issue | 51s |
+| Rapid checkout button clicks | Impatient User | Passed | | 29s |
+| ...  | ... | ... | ... | ... |
+
+## Executive Summary
+
+The site handles core flows well but lacks feedback for unauthenticated
+actions — adding an item to cart silently fails with no error message.
+
+### Key Findings
+1. No feedback when guest user attempts cart actions (Website Issue)
+2. Search handles XSS payloads correctly via silent sanitization
+3. Empty form submission shows clear inline validation errors
+
+### Recommended Actions
+1. Show a login prompt or error when unauthenticated users attempt cart actions
+2. Add rate-limiting feedback for rapid repeated submissions
+3. Improve loading indicators on slow network requests
+```
+
+The full JSON report (`evaluation_report.json`) contains structured results, action traces, screenshots, trait evaluations, and feedback quality scores.
+
 ## All CLI Options
 
 | Flag | Default | Description |
@@ -149,30 +197,15 @@ The UI lets you review the generated test plan, run all tests with a live progre
 
 ## REST API
 
-Murphy also exposes a REST API for programmatic evaluation:
+Murphy exposes a REST API for programmatic evaluation. Start the server with:
 
 ```bash
 murphy-api
 ```
 
-### Endpoints
+Endpoints: `/analyze`, `/generate-plan`, `/execute`, `/evaluate`, `/jobs/{job_id}`. Each POST endpoint supports synchronous, async+webhook, and async+polling modes. Auth via `X-API-Key` header.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Health check |
-| `POST` | `/analyze` | Website analysis (feature discovery) |
-| `POST` | `/generate-plan` | Test plan generation from analysis |
-| `POST` | `/execute` | Test execution from plan |
-| `POST` | `/evaluate` | Combined explore + plan generation |
-| `GET` | `/jobs/{job_id}` | Job status polling (supports long-poll via `?poll=N`) |
-
-Every `POST` endpoint supports three modes:
-
-- **Synchronous** (default) — blocks until completion, returns `200` with result
-- **Async + webhook** (`webhook_url` set) — returns `202` with `job_id`, POSTs result to webhook on completion
-- **Async + polling** (`"async": true`) — returns `202` with `job_id`, poll `/jobs/{job_id}` for result
-
-Authentication is via `X-API-Key` header when `MURPHY_API_KEY` is configured.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#rest-api-murphy-api) for full endpoint documentation.
 
 ---
 
@@ -180,15 +213,11 @@ Authentication is via `X-API-Key` header when `MURPHY_API_KEY` is configured.
 
 All variables are optional unless noted. See `.env.example` for a template.
 
-### LLM Providers
+### LLM Provider
 
 | Variable | Description |
 |----------|-------------|
-| `OPENAI_API_KEY` | OpenAI API key (required if using default `gpt-5-mini` model) |
-| `ANTHROPIC_API_KEY` | Anthropic API key (if using `--model` with an Anthropic model) |
-| `GOOGLE_API_KEY` | Google API key (if using `--model` with a Google model) |
-| `GROQ_API_KEY` | Groq API key (if using `--model` with a Groq model) |
-| `DEEPSEEK_API_KEY` | DeepSeek API key (if using `--model` with a DeepSeek model) |
+| `OPENAI_API_KEY` | OpenAI API key (required) |
 
 ### REST API
 
@@ -217,61 +246,6 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details on the codebase str
 
 ---
 
-## Development
+## Contributing
 
-### Setup
-
-```bash
-uv sync
-```
-
-### Testing
-
-```bash
-uv run pytest -vxs tests/browser_use         # CI test suite
-uv run pytest -vxs tests/                     # all tests
-uv run pytest -vxs tests/browser_use/test_specific_test.py  # single file
-```
-
-### Quality Checks
-
-```bash
-uv run pyright                          # type checking
-uv run ruff check --fix                 # linting
-uv run ruff format                      # formatting
-uv run pre-commit run --all-files       # pre-commit hooks
-```
-
-### Code Style
-
-- Async Python throughout
-- **Tabs** for indentation (not spaces)
-- Modern Python 3.12+ typing: `str | None`, `list[str]`, `dict[str, Any]` (not `Optional`, `List`, `Dict`)
-- Console logging in separate `_log_*` methods to keep main logic clean
-- Pydantic v2 models for internal data and user-facing API parameters
-- Pydantic `model_config = ConfigDict(extra='forbid', validate_by_name=True, validate_by_alias=True)` tuned per use-case
-- `Annotated[..., AfterValidator(...)]` for validation logic instead of helper methods
-- `from uuid_extensions import uuid7str` + `id: str = Field(default_factory=uuid7str)` for ID fields
-- Runtime assertions at function boundaries to enforce constraints
-- Always use `uv` instead of `pip`
-- Use real model names — `gpt-4o` and `gpt-4` are distinct models
-- Return `ActionResult` with structured content from actions
-- Run pre-commit hooks before PRs
-
-### Testing Conventions
-
-- **No mocks** — always use real objects. The only exception is the LLM: use pytest fixtures in `conftest.py` to set up LLM responses.
-- **No real remote URLs** — use `pytest-httpserver` to set up a local test server with the HTML needed for each test.
-- Tests in `tests/browser_use/` are the CI suite, run automatically on every commit. Tests specific to an event go in `tests/browser_use/test_action_EventNameHere.py`.
-- Modern pytest-asyncio: no `@pytest.mark.asyncio` needed, just use `async` test functions. Use `loop = asyncio.get_event_loop()` when needed. Fixtures use plain `@pytest.fixture`.
-
-### Strategy for Making Changes
-
-1. Find or write tests verifying existing behavior before making changes
-2. Write failing tests for the new design, confirm they fail
-3. Implement changes, running tests as needed to verify assumptions
-4. Run the full `tests/browser_use` suite — confirm new design works and backward compatibility is preserved
-5. Condense/deduplicate test logic, scan for other test files that need updates
-6. Update relevant docs to match implementation
-
-For large refactors, prefer event buses and job queues to break systems into smaller services managing isolated state.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, testing, code style, and contribution guidelines.

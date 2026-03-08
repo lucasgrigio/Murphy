@@ -2,6 +2,6 @@
 
 import sys
 
-from murphy.cli import main
+from murphy.api.cli import main
 
 sys.exit(main())

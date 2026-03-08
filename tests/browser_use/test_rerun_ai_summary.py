@@ -32,26 +32,21 @@ async def test_generate_rerun_summary_success():
 
 	llm = create_mock_llm(actions=None)
 	agent = Agent(task='Test task', llm=llm)
-	await agent.browser_session.start()
 
-	try:
-		# Create some successful results
-		results = [
-			ActionResult(long_term_memory='Step 1 completed'),
-			ActionResult(long_term_memory='Step 2 completed'),
-		]
+	# Create some successful results
+	results = [
+		ActionResult(long_term_memory='Step 1 completed'),
+		ActionResult(long_term_memory='Step 2 completed'),
+	]
 
-		# Pass the mock LLM directly as summary_llm
-		summary = await agent._generate_rerun_summary('Test task', results, summary_llm=mock_openai)
+	# Pass the mock LLM directly as summary_llm
+	summary = await agent._generate_rerun_summary('Test task', results, summary_llm=mock_openai)
 
-		# Check that result is the AI summary
-		assert summary.is_done is True
-		assert summary.success is True
-		assert summary.extracted_content == 'Form filled successfully'
-		assert 'Rerun completed' in (summary.long_term_memory or '')
-
-	finally:
-		await agent.close()
+	# Check that result is the AI summary
+	assert summary.is_done is True
+	assert summary.success is True
+	assert summary.extracted_content == 'Form filled successfully'
+	assert 'Rerun completed' in (summary.long_term_memory or '')
 
 
 async def test_generate_rerun_summary_with_errors():
@@ -75,25 +70,20 @@ async def test_generate_rerun_summary_with_errors():
 
 	llm = create_mock_llm(actions=None)
 	agent = Agent(task='Test task', llm=llm)
-	await agent.browser_session.start()
 
-	try:
-		# Create results with errors
-		results_with_errors = [
-			ActionResult(error='Failed to find element'),
-			ActionResult(error='Timeout'),
-		]
+	# Create results with errors
+	results_with_errors = [
+		ActionResult(error='Failed to find element'),
+		ActionResult(error='Timeout'),
+	]
 
-		# Pass the mock LLM directly as summary_llm
-		summary = await agent._generate_rerun_summary('Test task', results_with_errors, summary_llm=mock_openai)
+	# Pass the mock LLM directly as summary_llm
+	summary = await agent._generate_rerun_summary('Test task', results_with_errors, summary_llm=mock_openai)
 
-		# Verify summary reflects errors
-		assert summary.is_done is True
-		assert summary.success is False
-		assert summary.extracted_content == 'Rerun had errors'
-
-	finally:
-		await agent.close()
+	# Verify summary reflects errors
+	assert summary.is_done is True
+	assert summary.success is False
+	assert summary.extracted_content == 'Rerun had errors'
 
 
 async def test_generate_rerun_summary_fallback_on_error():
@@ -104,26 +94,21 @@ async def test_generate_rerun_summary_fallback_on_error():
 
 	llm = create_mock_llm(actions=None)
 	agent = Agent(task='Test task', llm=llm)
-	await agent.browser_session.start()
 
-	try:
-		# Create some results
-		results = [
-			ActionResult(long_term_memory='Step 1 completed'),
-			ActionResult(long_term_memory='Step 2 completed'),
-		]
+	# Create some results
+	results = [
+		ActionResult(long_term_memory='Step 1 completed'),
+		ActionResult(long_term_memory='Step 2 completed'),
+	]
 
-		# Pass the mock LLM directly as summary_llm
-		summary = await agent._generate_rerun_summary('Test task', results, summary_llm=mock_openai)
+	# Pass the mock LLM directly as summary_llm
+	summary = await agent._generate_rerun_summary('Test task', results, summary_llm=mock_openai)
 
-		# Verify fallback summary
-		assert summary.is_done is True
-		assert summary.success is True  # No errors, so success=True
-		assert 'Rerun completed' in (summary.extracted_content or '')
-		assert '2/2' in (summary.extracted_content or '')  # Should show stats
-
-	finally:
-		await agent.close()
+	# Verify fallback summary
+	assert summary.is_done is True
+	assert summary.success is True  # No errors, so success=True
+	assert 'Rerun completed' in (summary.extracted_content or '')
+	assert '2/2' in (summary.extracted_content or '')  # Should show stats
 
 
 async def test_generate_rerun_summary_statistics():
@@ -147,32 +132,32 @@ async def test_generate_rerun_summary_statistics():
 
 	llm = create_mock_llm(actions=None)
 	agent = Agent(task='Test task', llm=llm)
-	await agent.browser_session.start()
 
-	try:
-		# Create results with mix of success and errors
-		results = [
-			ActionResult(long_term_memory='Step 1 completed'),
-			ActionResult(error='Step 2 failed'),
-			ActionResult(long_term_memory='Step 3 completed'),
-			ActionResult(error='Step 4 failed'),
-			ActionResult(long_term_memory='Step 5 completed'),
-		]
+	# Create results with mix of success and errors
+	results = [
+		ActionResult(long_term_memory='Step 1 completed'),
+		ActionResult(error='Step 2 failed'),
+		ActionResult(long_term_memory='Step 3 completed'),
+		ActionResult(error='Step 4 failed'),
+		ActionResult(long_term_memory='Step 5 completed'),
+	]
 
-		# Pass the mock LLM directly as summary_llm
-		summary = await agent._generate_rerun_summary('Test task', results, summary_llm=mock_openai)
+	# Pass the mock LLM directly as summary_llm
+	summary = await agent._generate_rerun_summary('Test task', results, summary_llm=mock_openai)
 
-		# Verify summary
-		assert summary.is_done is True
-		assert summary.success is False  # partial completion
-		assert '3 of 5' in (summary.extracted_content or '')
-
-	finally:
-		await agent.close()
+	# Verify summary
+	assert summary.is_done is True
+	assert summary.success is False  # partial completion
+	assert '3 of 5' in (summary.extracted_content or '')
 
 
-async def test_rerun_skips_steps_with_original_errors():
+async def test_rerun_skips_steps_with_original_errors(httpserver):
 	"""Test that rerun_history skips steps that had errors in the original run when skip_failures=True"""
+
+	# Set up a local test page so the browser doesn't stay on a heavy external default page
+	test_html = """<!DOCTYPE html><html><body><p>Test</p></body></html>"""
+	httpserver.expect_request('/test').respond_with_data(test_html, content_type='text/html')
+	test_url = httpserver.url_for('/test')
 
 	# Create a mock LLM for summary
 	summary_action = RerunSummaryAction(
@@ -195,18 +180,33 @@ async def test_rerun_skips_steps_with_original_errors():
 	llm = create_mock_llm(actions=None)
 	agent = Agent(task='Test task', llm=llm)
 
-	# Create mock history with a step that has an error
-	mock_state = BrowserStateHistory(
-		url='https://example.com',
-		title='Test Page',
-		tabs=[],
-		interacted_element=[None],
-	)
-
 	# Get the dynamically created AgentOutput type from the agent
 	AgentOutput = agent.AgentOutput
 
-	# Create a step that originally had an error (using navigate action which doesn't require element matching)
+	# Step 1: Navigate to local test page (succeeds, keeps browser on a lightweight local page)
+	navigate_step = AgentHistory(
+		model_output=AgentOutput(
+			evaluation_previous_goal=None,
+			memory='Navigate to test page',
+			next_goal=None,
+			action=[{'navigate': {'url': test_url}}],  # type: ignore[arg-type]
+		),
+		result=[ActionResult(long_term_memory='Navigated')],
+		state=BrowserStateHistory(
+			url=test_url,
+			title='Test Page',
+			tabs=[],
+			interacted_element=[None],
+		),
+		metadata=StepMetadata(
+			step_start_time=0,
+			step_end_time=1,
+			step_number=1,
+			step_interval=0.1,
+		),
+	)
+
+	# Step 2: A step that originally had an error (will be skipped)
 	failed_step = AgentHistory(
 		model_output=AgentOutput(
 			evaluation_previous_goal=None,
@@ -215,17 +215,22 @@ async def test_rerun_skips_steps_with_original_errors():
 			action=[{'navigate': {'url': 'https://example.com/page'}}],  # type: ignore[arg-type]
 		),
 		result=[ActionResult(error='Navigation failed - network error')],
-		state=mock_state,
+		state=BrowserStateHistory(
+			url='https://example.com',
+			title='Test Page',
+			tabs=[],
+			interacted_element=[None],
+		),
 		metadata=StepMetadata(
-			step_start_time=0,
-			step_end_time=1,
-			step_number=1,
-			step_interval=1.0,
+			step_start_time=1,
+			step_end_time=2,
+			step_number=2,
+			step_interval=0.1,
 		),
 	)
 
-	# Create history with the failed step
-	history = AgentHistoryList(history=[failed_step])
+	# Create history with both steps
+	history = AgentHistoryList(history=[navigate_step, failed_step])
 
 	try:
 		# Run rerun with skip_failures=True - should skip the step with original error
@@ -235,17 +240,20 @@ async def test_rerun_skips_steps_with_original_errors():
 			summary_llm=mock_summary_llm,
 		)
 
-		# The step should have been skipped (not retried) because it originally had an error
-		# We should have 2 results: the skipped step result and the AI summary
-		assert len(results) == 2
+		# We should have 3 results: navigate success + skipped step + AI summary
+		assert len(results) == 3
 
-		# First result should indicate the step was skipped
-		skipped_result = results[0]
+		# First result should be successful navigation
+		nav_result = results[0]
+		assert nav_result.error is None
+
+		# Second result should indicate the step was skipped
+		skipped_result = results[1]
 		assert skipped_result.error is not None
 		assert 'Skipped - original step had error' in skipped_result.error
 
-		# Second result should be the AI summary
-		summary_result = results[1]
+		# Third result should be the AI summary
+		summary_result = results[2]
 		assert summary_result.is_done is True
 
 	finally:

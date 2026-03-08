@@ -34,6 +34,21 @@ TestPersona = Literal[
 
 
 # ─── Trait system ─────────────────────────────────────────────────────────────
+#
+# Each test persona maps to a TraitVector and a TestType. The trait vector
+# captures five behavioral dimensions (technical_literacy, patience, intent,
+# exploration, reading_comprehension) at low/medium/high levels. During
+# judging, each trait level selects a different evaluation question — e.g.
+# a low-patience persona is judged on whether the site provided *immediate*
+# feedback, while a high-patience persona only needs eventual correctness.
+#
+# TestType controls pass/fail semantics in the judge:
+#   ux       — silent handling with no visible feedback is a FAIL
+#   security — silent sanitization is CORRECT; only crashes/leaks fail
+#   boundary — graceful degradation is a PASS; only unhandled exceptions fail
+#
+# See core/judge.py (TRAIT_JUDGE_QUESTIONS, TEST_TYPE_RULES) for the full
+# mapping from trait levels to evaluation questions.
 
 
 class TraitLevel(IntEnum):
@@ -43,6 +58,12 @@ class TraitLevel(IntEnum):
 
 
 class TraitVector(BaseModel):
+	"""Behavioral profile for a test persona.
+
+	Each dimension is evaluated independently by the judge LLM, with the
+	trait level selecting a difficulty-appropriate evaluation question.
+	"""
+
 	model_config = ConfigDict(extra='forbid', frozen=True)
 	technical_literacy: TraitLevel = TraitLevel.medium
 	patience: TraitLevel = TraitLevel.medium

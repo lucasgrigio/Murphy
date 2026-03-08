@@ -1,0 +1,222 @@
+"""Murphy REST API — job store, dispatch, and execution wrappers."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+import traceback
+from typing import Any, Literal
+
+import httpx
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from uuid_extensions import uuid7str
+
+from murphy.api.request_models import JobResponse
+from murphy.config import (
+	MURPHY_JOB_TIMEOUT_OVERRIDE,
+	MURPHY_MAX_CONCURRENT_JOBS,
+	SEMAPHORE_ACQUIRE_TIMEOUT,
+)
+
+logger = logging.getLogger('murphy.api')
+
+# ─── Job store ────────────────────────────────────────────────────────────────
+
+JOB_TTL_SECONDS = 3600  # Completed/failed jobs are evicted after 1 hour
+WEBHOOK_MAX_RETRIES = 2
+WEBHOOK_RETRY_DELAY = 2.0  # seconds (doubles each retry)
+
+
+class Job(BaseModel):
+	id: str = Field(default_factory=uuid7str)
+	status: Literal['running', 'completed', 'failed'] = 'running'
+	result: Any = None
+	error: str | None = None
+	finished_at: float | None = None
+
+
+_jobs: dict[str, Job] = {}
+
+
+def _evict_expired_jobs() -> None:
+	"""Remove completed/failed jobs older than JOB_TTL_SECONDS."""
+	now = time.monotonic()
+	expired = [jid for jid, job in _jobs.items() if job.finished_at is not None and (now - job.finished_at) > JOB_TTL_SECONDS]
+	for jid in expired:
+		del _jobs[jid]
+
+
+# Semaphore to limit concurrent browser jobs
+_job_semaphore = asyncio.Semaphore(MURPHY_MAX_CONCURRENT_JOBS)
+
+
+def get_job(job_id: str) -> Job | None:
+	"""Look up a job by ID."""
+	return _jobs.get(job_id)
+
+
+def _effective_timeout(timeout: int) -> int:
+	"""Return the override timeout if set, otherwise the per-endpoint value."""
+	if MURPHY_JOB_TIMEOUT_OVERRIDE is not None:
+		return int(MURPHY_JOB_TIMEOUT_OVERRIDE)
+	return timeout
+
+
+# ─── Webhook delivery ─────────────────────────────────────────────────────────
+
+
+async def _deliver_webhook(webhook_url: str, payload: dict[str, Any]) -> None:
+	"""POST job result to the webhook URL with exponential backoff retry."""
+	delay = WEBHOOK_RETRY_DELAY
+	for attempt in range(1, WEBHOOK_MAX_RETRIES + 2):
+		try:
+			async with httpx.AsyncClient(timeout=30) as client:
+				resp = await client.post(webhook_url, json=payload)
+				resp.raise_for_status()
+				logger.info('Webhook delivered to %s: %s', webhook_url, resp.status_code)
+				return
+		except Exception as exc:
+			if attempt <= WEBHOOK_MAX_RETRIES:
+				logger.warning(
+					'Webhook attempt %d/%d failed for %s: %s — retrying in %.0fs',
+					attempt,
+					WEBHOOK_MAX_RETRIES + 1,
+					webhook_url,
+					exc,
+					delay,
+				)
+				await asyncio.sleep(delay)
+				delay *= 2
+			else:
+				logger.error('Webhook delivery failed after %d attempts for %s: %s', attempt, webhook_url, exc)
+
+
+# ─── Core execution with semaphore ───────────────────────────────────────────
+
+
+async def _acquire_semaphore() -> bool:
+	"""Acquire the job semaphore with timeout. Returns True on success."""
+	try:
+		await asyncio.wait_for(_job_semaphore.acquire(), timeout=SEMAPHORE_ACQUIRE_TIMEOUT)
+		return True
+	except TimeoutError:
+		return False
+
+
+async def _execute_with_semaphore(job: Job, core_fn: Any, req: Any, timeout: int) -> None:
+	"""Run core_fn under semaphore, update job status on completion/failure."""
+	try:
+		effective = _effective_timeout(timeout)
+		job.result = await asyncio.wait_for(core_fn(req), timeout=effective)
+		job.status = 'completed'
+	except TimeoutError:
+		logger.error('Job %s timed out after %ds', job.id, _effective_timeout(timeout))
+		job.status = 'failed'
+		job.error = f'Job timed out after {_effective_timeout(timeout)}s'
+	except Exception as exc:
+		tb = traceback.format_exc()
+		logger.error('Job %s failed: %s\n%s', job.id, exc, tb)
+		job.status = 'failed'
+		job.error = f'{type(exc).__name__}: {exc}'
+	finally:
+		job.finished_at = time.monotonic()
+		_job_semaphore.release()
+
+
+_BUSY_ERROR = f'All {MURPHY_MAX_CONCURRENT_JOBS} job slots busy — try again later'
+
+
+# ─── Background job wrapper (async mode with webhook) ───────────────────────
+
+
+async def _run_job_async(
+	job: Job,
+	core_fn: Any,
+	req: Any,
+	webhook_url: str,
+	timeout: int,
+) -> None:
+	"""Run core function as a background job, update job store, deliver webhook."""
+	if not await _acquire_semaphore():
+		job.status = 'failed'
+		job.error = _BUSY_ERROR
+		job.finished_at = time.monotonic()
+		await _deliver_webhook(webhook_url, job.model_dump())
+		return
+
+	await _execute_with_semaphore(job, core_fn, req, timeout)
+	await _deliver_webhook(
+		webhook_url,
+		{
+			'job_id': job.id,
+			'status': job.status,
+			'result': job.result,
+			'error': job.error,
+		},
+	)
+
+
+# ─── Background job wrapper (async mode without webhook) ─────────────────────
+
+
+async def _run_job_no_webhook(
+	job: Job,
+	core_fn: Any,
+	req: Any,
+	timeout: int,
+) -> None:
+	"""Run core function as a background job, update job store. No webhook delivery."""
+	if not await _acquire_semaphore():
+		job.status = 'failed'
+		job.error = _BUSY_ERROR
+		job.finished_at = time.monotonic()
+		return
+
+	await _execute_with_semaphore(job, core_fn, req, timeout)
+
+
+# ─── Sync mode helper ───────────────────────────────────────────────────────
+
+
+async def _run_sync(core_fn: Any, req: Any, timeout: int) -> JSONResponse:
+	"""Run core function synchronously (blocking), return 200 with result or 500 on error."""
+	if not await _acquire_semaphore():
+		return JSONResponse(content={'status': 'failed', 'error': _BUSY_ERROR}, status_code=503)
+
+	# Create a temporary job to reuse shared execution logic
+	job = Job(id='sync')
+	await _execute_with_semaphore(job, core_fn, req, timeout)
+
+	if job.status == 'completed':
+		return JSONResponse(content={'status': 'completed', 'result': job.result}, status_code=200)
+	status_code = 504 if 'timed out' in (job.error or '') else 500
+	return JSONResponse(content={'status': 'failed', 'error': job.error}, status_code=status_code)
+
+
+# ─── Dispatch helper ─────────────────────────────────────────────────────────
+
+
+async def dispatch(core_fn: Any, req: Any, timeout: int) -> JSONResponse:
+	"""Route request to sync, async+webhook, or async+poll mode."""
+	_evict_expired_jobs()
+
+	if req.webhook_url:
+		job = Job()
+		_jobs[job.id] = job
+		asyncio.create_task(_run_job_async(job, core_fn, req, req.webhook_url, timeout))
+		return JSONResponse(
+			content=JobResponse(job_id=job.id, status=job.status).model_dump(),
+			status_code=202,
+		)
+	elif req.async_mode:
+		job = Job()
+		_jobs[job.id] = job
+		asyncio.create_task(_run_job_no_webhook(job, core_fn, req, timeout))
+		return JSONResponse(
+			content=JobResponse(job_id=job.id, status=job.status).model_dump(),
+			status_code=202,
+		)
+	else:
+		return await _run_sync(core_fn, req, timeout)

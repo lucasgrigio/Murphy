@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.0.0] - 2026-03-05
 
 ### Added
-- Two-phase evaluation pipeline: plan generation (analyze + generate tests) and test execution
+- Three-phase evaluation pipeline: feature discovery, test plan generation, and test execution
 - AI browser agent powered by vendored browser-use engine
 - Auth detection and manual login flow with persistent browser profiles
 - Goal-directed exploration-first test generation (`--goal`)
