@@ -12,6 +12,7 @@ can't miss navigation proof buried in nested JSON.
 from browser_use.agent.views import AgentHistoryList
 from browser_use.llm import ChatOpenAI, SystemMessage, UserMessage
 from browser_use.llm.messages import ContentPartImageParam, ContentPartTextParam, ImageURL
+from browser_use.utils import sanitize_surrogates
 from murphy.models import (
 	PERSONA_REGISTRY,
 	JudgeVerdict,
@@ -133,9 +134,7 @@ Success criteria describe the EXPECTED BEHAVIORAL OUTCOME, not the only acceptab
 
 - **Flexible mechanism matching**: If the criteria say "the site prevents empty form submission" and the site uses a disabled submit button instead of an error toast, that IS a pass — the behavior (prevention) was achieved through a different mechanism.
 - **Quoted text is illustrative, not literal**: Any quoted UI text in criteria (e.g., "'Please fill out this field'") is ONE example of acceptable behavior, not the only acceptable response. A site showing "Required" instead of "Please fill out this field" achieves the same outcome.
-- **Alternative outcomes**: When criteria list alternatives separated by OR, ANY one of them is sufficient for a pass. If ANY single OR condition is satisfied, set verdict=true immediately — do NOT require all OR branches to be satisfied.
-- **Do NOT fail for missing ephemeral signals**: If a persistent signal already confirms the outcome (entity visible in list/detail with its name, URL changed to the expected destination, persistent banner present), do NOT set verdict=false just because an ephemeral toast or a specific status badge was not captured. Record those as missing_signals instead.
-- **Non-happy-path default**: For security-oriented personas (adversarial, edge_case, angry_user), any mechanism that prevents the bad outcome (crash, data leak, unhandled exception, corrupted state) is a PASS. Only FAIL on demonstrable mishandling.
+- **Alternative outcomes**: When criteria list alternatives separated by OR, ANY one of them is sufficient for a pass.- **Non-happy-path default**: For security-oriented personas (adversarial, edge_case, angry_user), any mechanism that prevents the bad outcome (crash, data leak, unhandled exception, corrupted state) is a PASS. Only FAIL on demonstrable mishandling.
 - **Silent handling is valid for security-oriented personas (adversarial, edge_case, angry_user)**: If the site silently sanitizes input, ignores invalid data, or gracefully degrades without any visible feedback, that IS correct behavior for security personas — not a failure. For UX-oriented personas (happy_path, confused_novice, impatient_user, explorer), the site MUST provide visible feedback — a disabled button with no explanation, a silently ignored input, or a form that does nothing on submit is a FAIL.
 - **Disabled controls ARE prevention for security-oriented personas**: If a submit/publish/next button is disabled when fields are empty or invalid, that IS the site preventing submission for security personas. For UX-oriented personas, a disabled control MUST be accompanied by visible explanation (tooltip, inline text, grayed-out label explaining why) to count as a PASS.
 - **Focus on harm, not form** (security personas): Ask "did the site handle this situation without harm?" not "did the site handle it exactly as described?"
@@ -149,6 +148,7 @@ Even when verdict=true, populate `missing_signals` with any expected confirmatio
 - Secondary confirmations missing: e.g. "confirmation dialog not shown before delete"
 
 If verdict=true and all expected signals were observed, leave `missing_signals` as an empty list.
+
 
 ## Failure classification
 
@@ -200,14 +200,13 @@ JUDGE_USER_TEMPLATE = """\
 
 ---
 
-## Outcome check (for verdict)
-
-Base verdict on whether the OUTCOME happened — not on which specific signals confirmed it:
-- **Create flows**: if the new entity appears anywhere in the app with a recognizable identifier (name, ID, or other label visible in a list row, detail page, or URL), verdict=true.
-- **Delete flows**: if the entity is absent from list/search results, verdict=true.
-- **Edit flows**: if updated values are visible in any list, detail, or status view, verdict=true.
-- **General**: if ANY single OR condition from the success criteria is satisfied by any observable evidence (persistent banner, URL change, entity in list, redirect to detail page), verdict=true.
-- Only set verdict=false if there is ZERO evidence of any kind that the outcome occurred.
+## Validation rules
+- Validate outcome state before returning a verdict (no inference from partial signals).
+- Use visible UI signals only: toasts, badges, list rows, detail cards, confirmation messages.
+- For create flows: confirm new entity appears with a recognizable identifier.
+- For delete flows: confirm entity is absent from list/search.
+- For edit flows: reopen and confirm updates persist.
+- If evidence is ambiguous, return verdict=false.
 
 ## Signal gaps (for `missing_signals` — never affects verdict)
 
@@ -373,6 +372,7 @@ async def murphy_judge(
 		errors=errors_text,
 		final_result=final_result,
 	)
+	user_prompt = sanitize_surrogates(user_prompt)
 
 	# Build multimodal user message with screenshots for visual verification
 	user_content: list[ContentPartTextParam | ContentPartImageParam] = [
